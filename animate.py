@@ -45,7 +45,9 @@ class ForceLine:
         )
 
 
-def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False):
+def animate(
+    states, controls, aircraft: Aircraft, force_data=None, force_scale=0.5, follow=False
+):
     elevon_chord = aircraft.chord * aircraft.elevon_percentage
     wing_chord = aircraft.chord - elevon_chord
     wing_front_back = aircraft.chord * 0.5
@@ -127,41 +129,50 @@ def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False)
     ax.add_collection3d(poly)
 
     # force arrows
-    #   13:16         16:19         19:22         22:25     25:28     28:31           31:34          34:37          37:40            40:43           43:46
-    # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
-    motor_thr_l = ForceLine(aircraft.p_l, states[13:16, 0], ax, force_scale)
-    motor_thr_r = ForceLine(aircraft.p_r, states[16:19, 0], ax, force_scale)
-    motor_drag_l = ForceLine(aircraft.p_l, states[19:22, 0], ax, force_scale, "green")
-    motor_drag_r = ForceLine(aircraft.p_r, states[22:25, 0], ax, force_scale, "green")
+    #     0:3         3:6            6:9         9:12       12:15     15:18           18:21              21:24            24:27           27:30           30:33           33:36
+    # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc_l, elv_lift_reduc_r, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
+    motor_thr_l = ForceLine(aircraft.p_l, force_data[0:3, 0], ax, force_scale)
+    motor_thr_r = ForceLine(aircraft.p_r, force_data[3:6, 0], ax, force_scale)
+    motor_drag_l = ForceLine(aircraft.p_l, force_data[6:9, 0], ax, force_scale, "green")
+    motor_drag_r = ForceLine(
+        aircraft.p_r, force_data[9:12, 0], ax, force_scale, "green"
+    )
     lift = ForceLine(
         np.array([aircraft.chord * 0.25, 0, 0]),
-        states[25:28, 0],
+        force_data[12:15, 0],
         ax,
         force_scale,
         "cyan",
     )
     force_gravity = ForceLine(
         np.array([aircraft.chord * 0.25 + aircraft.delta_r, 0, 0]),
-        states[28:31, 0],
+        force_data[15:18, 0],
         ax,
         force_scale,
         "red",
     )
-    elv_lift_reduc = ForceLine(
-        [wing[0, 0] - wing_chord - elevon_chord * 0.5, 0, 0],
-        states[31:34, 0],
+    elv_lift_reduc_l = ForceLine(
+        [wing[0, 0] - wing_chord - elevon_chord * 0.5, -wing_tip * 0.5, 0],
+        force_data[18:21, 0],
         ax,
         force_scale,
         "green",
     )
-    rot_lift_wing = ForceLine([0, 0, 0], states[34:37, 0], ax, force_scale)
+    elv_lift_reduc_r = ForceLine(
+        [wing[0, 0] - wing_chord - elevon_chord * 0.5, wing_tip * 0.5, 0],
+        force_data[21:24, 0],
+        ax,
+        force_scale,
+        "green",
+    )
+    rot_lift_wing = ForceLine([0, 0, 0], force_data[24:27, 0], ax, force_scale)
     elv_thr_redir_l = ForceLine(
         [
             wing[0, 0] - wing_chord - elevon_chord * 0.5,
             -aircraft.wingspan * 0.25,
             0,
         ],
-        states[37:40, 0],
+        force_data[27:30, 0],
         ax,
         force_scale,
     )
@@ -171,13 +182,13 @@ def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False)
             aircraft.wingspan * 0.25,
             0,
         ],
-        states[40:43, 0],
+        force_data[30:33, 0],
         ax,
         force_scale,
     )
     rot_lift_reduc_elv = ForceLine(
         [0, 0, 0],
-        states[43:46, 0],
+        force_data[33:36, 0],
         ax,
         force_scale,
     )
@@ -229,32 +240,39 @@ def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False)
         new_right_elevon = right_elevon_rot.apply(new_right_elevon)
         new_left_elevon += [wing_elevon_front, 0, 0]
         new_right_elevon += [wing_elevon_front, 0, 0]
-        mtr_thr_l_data = motor_thr_l.update_base(states[13:16, frame * 2] * force_scale)
-        mtr_thr_r_data = motor_thr_r.update_base(states[16:19, frame * 2] * force_scale)
+        mtr_thr_l_data = motor_thr_l.update_base(
+            force_data[0:3, frame * 2] * force_scale
+        )
+        mtr_thr_r_data = motor_thr_r.update_base(
+            force_data[3:6, frame * 2] * force_scale
+        )
         mtr_drg_l_data = motor_drag_l.update_base(
-            states[19:22, frame * 2] * force_scale
+            force_data[6:9, frame * 2] * force_scale
         )
         mtr_drg_r_data = motor_drag_r.update_base(
-            states[22:25, frame * 2] * force_scale
+            force_data[9:12, frame * 2] * force_scale
         )
-        lift_data = lift.update_base(states[25:28, frame * 2] * force_scale)
+        lift_data = lift.update_base(force_data[12:15, frame * 2] * force_scale)
         force_gravity_data = force_gravity.update_base(
-            states[28:31, frame * 2] * force_scale
+            force_data[15:18, frame * 2] * force_scale
         )
-        elv_lift_reduc_data = elv_lift_reduc.update_base(
-            states[31:34, frame * 2] * force_scale
+        elv_lift_reduc_l_data = elv_lift_reduc_l.update_base(
+            force_data[18:21, frame * 2] * force_scale
+        )
+        elv_lift_reduc_r_data = elv_lift_reduc_r.update_base(
+            force_data[21:24, frame * 2] * force_scale
         )
         rot_lift_wing_data = rot_lift_wing.update_base(
-            states[34:37, frame * 2] * force_scale
+            force_data[24:27, frame * 2] * force_scale
         )
         elv_thr_redir_l_data = elv_thr_redir_l.update_base(
-            states[37:40, frame * 2] * force_scale
+            force_data[27:30, frame * 2] * force_scale
         )
         elv_thr_redir_r_data = elv_thr_redir_r.update_base(
-            states[40:43, frame * 2] * force_scale
+            force_data[30:33, frame * 2] * force_scale
         )
         rot_lift_reduc_elv_data = rot_lift_reduc_elv.update_base(
-            states[43:46, frame * 2] * force_scale
+            force_data[33:36, frame * 2] * force_scale
         )
         # move to quarter chord
         full_body = np.concatenate(
@@ -268,7 +286,8 @@ def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False)
                 mtr_drg_r_data,
                 lift_data,
                 force_gravity_data,
-                elv_lift_reduc_data,
+                elv_lift_reduc_l_data,
+                elv_lift_reduc_r_data,
                 rot_lift_wing_data,
                 elv_thr_redir_l_data,
                 elv_thr_redir_r_data,
@@ -294,11 +313,13 @@ def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False)
         mtr_drg_r_data = full_body[18:20, :]
         lift_data = full_body[20:22, :]
         force_gravity_data = full_body[22:24, :]
-        elv_lift_reduc_data = full_body[24:26, :]
-        rot_lift_wing_data = full_body[26:28, :]
-        elv_thr_redir_l_data = full_body[28:30, :]
-        elv_thr_redir_r_data = full_body[30:32, :]
-        rot_lift_reduc_elv_data = full_body[32:34, :]
+        # print(np.linalg.norm(force_gravity.force_vector / aircraft.mass))
+        elv_lift_reduc_l_data = full_body[24:26, :]
+        elv_lift_reduc_r_data = full_body[26:28, :]
+        rot_lift_wing_data = full_body[28:30, :]
+        elv_thr_redir_l_data = full_body[30:32, :]
+        elv_thr_redir_r_data = full_body[32:34, :]
+        rot_lift_reduc_elv_data = full_body[34:36, :]
 
         poly.set_verts([new_wing, new_right_elevon, new_left_elevon])
         motor_thr_l.update_line(mtr_thr_l_data)
@@ -307,7 +328,8 @@ def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False)
         motor_drag_r.update_line(mtr_drg_r_data)
         lift.update_line(lift_data)
         force_gravity.update_line(force_gravity_data)
-        elv_lift_reduc.update_line(elv_lift_reduc_data)
+        elv_lift_reduc_l.update_line(elv_lift_reduc_l_data)
+        elv_lift_reduc_r.update_line(elv_lift_reduc_r_data)
         rot_lift_wing.update_line(rot_lift_wing_data)
         elv_thr_redir_l.update_line(elv_thr_redir_l_data)
         elv_thr_redir_r.update_line(elv_thr_redir_r_data)

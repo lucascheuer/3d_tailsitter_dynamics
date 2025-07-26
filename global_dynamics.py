@@ -98,7 +98,15 @@ def matrix_cross(vector):
 # Inputs u
 #    0       1         2          3
 # flap_l, flap_r, motor_w_l, motor_w_r
-def dynamics(t, x, u, aircraft: Aircraft, environment: Environment, ret_force=False):
+def dynamics(
+    t,
+    x,
+    u,
+    aircraft: Aircraft,
+    environment: Environment,
+    force_data: np.array,
+):
+    # print(force_data)
 
     pos_x = x[0]
     pos_y = x[1]
@@ -435,30 +443,46 @@ def dynamics(t, x, u, aircraft: Aircraft, environment: Environment, ret_force=Fa
     x_dot[11] = angular_acceleration_body[1]
     x_dot[12] = angular_acceleration_body[2]
 
-    x_dot[13:16] = motor_thrust_l_body - x[13:16]
-    x_dot[16:19] = motor_thrust_r_body - x[16:19]
-    x_dot[19:22] = propeller_drag_l_body - x[19:22]
-    x_dot[22:25] = propeller_drag_r_body - x[22:25]
-    x_dot[25:28] = lift_body - x[25:28]
-    x_dot[28:31] = force_gravity_body - x[28:31]
-    x_dot[31:34] = elevon_lift_reduction_body - x[31:34]
+    force_data[0:3] = motor_thrust_l_body
+    force_data[3:6] = motor_thrust_r_body
+    force_data[6:9] = propeller_drag_l_body
+    force_data[9:12] = propeller_drag_r_body
+    force_data[12:15] = lift_body
+    force_data[15:18] = force_gravity_body
+    force_data[18:21] = elevon_lift_reduction_l_body
+    force_data[21:24] = elevon_lift_reduction_r_body
+    force_data[24:27] = rotational_lift_wing
+    force_data[27:30] = elevon_thrust_redirection_l_body
+    force_data[30:33] = elevon_thrust_redirection_r_body
+    force_data[33:36] = rotational_elevon_lift_reduction_body
+    # x_dot[13:16] = motor_thrust_l_body - x[13:16]
+    # x_dot[16:19] = motor_thrust_r_body - x[16:19]
+    # x_dot[19:22] = propeller_drag_l_body - x[19:22]
+    # x_dot[22:25] = propeller_drag_r_body - x[22:25]
+    # x_dot[25:28] = lift_body - x[25:28]
+    # # print(
+    # #     np.linalg.norm(x[28:31]) / aircraft.mass,
+    # #     np.linalg.norm(force_gravity_body) / aircraft.mass,
+    # # )
+    # x_dot[28:31] = force_gravity_body - x[28:31]
+    # x_dot[31:34] = elevon_lift_reduction_body - x[31:34]
 
-    x_dot[34:37] = rotational_lift_wing - x[34:37]
-    x_dot[37:40] = elevon_thrust_redirection_l_body - x[37:40]
-    x_dot[40:43] = elevon_thrust_redirection_r_body - x[40:43]
-    x_dot[43:46] = rotational_elevon_lift_reduction_body - x[43:46]
+    # x_dot[34:37] = rotational_lift_wing - x[34:37]
+    # x_dot[37:40] = elevon_thrust_redirection_l_body - x[37:40]
+    # x_dot[40:43] = elevon_thrust_redirection_r_body - x[40:43]
+    # x_dot[43:46] = rotational_elevon_lift_reduction_body - x[43:46]
 
-    if ret_force:
-        print("first")
-        x_dot[13:16] = motor_thrust_l_body
-        x_dot[16:19] = motor_thrust_r_body
-        x_dot[19:22] = propeller_drag_l_body
-        x_dot[22:25] = propeller_drag_r_body
-        x_dot[25:28] = lift_body
-        x_dot[28:31] = force_gravity_body
-        x_dot[31:34] = elevon_lift_reduction_body
-        x_dot[34:37] = rotational_lift_wing
-        x_dot[37:40] = elevon_thrust_redirection_l_body
-        x_dot[40:43] = elevon_thrust_redirection_r_body
-        x_dot[43:46] = rotational_elevon_lift_reduction_body
+    # if ret_force:
+    #     print("first")
+    #     x_dot[13:16] = motor_thrust_l_body
+    #     x_dot[16:19] = motor_thrust_r_body
+    #     x_dot[19:22] = propeller_drag_l_body
+    #     x_dot[22:25] = propeller_drag_r_body
+    #     x_dot[25:28] = lift_body
+    #     x_dot[28:31] = force_gravity_body
+    #     x_dot[31:34] = elevon_lift_reduction_body
+    #     x_dot[34:37] = rotational_lift_wing
+    #     x_dot[37:40] = elevon_thrust_redirection_l_body
+    #     x_dot[40:43] = elevon_thrust_redirection_r_body
+    #     x_dot[43:46] = rotational_elevon_lift_reduction_body
     return x_dot
