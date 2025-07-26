@@ -1,0 +1,531 @@
+import numpy as np
+from matplotlib import pyplot as plt
+import mpl_toolkits.mplot3d.art3d as art3d
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from matplotlib.patches import Circle
+from matplotlib.animation import FuncAnimation
+
+# from scipy.spatial.transform import RigidTransform as Tf
+from scipy.spatial.transform import Rotation as R
+
+from global_dynamics import Aircraft
+
+
+class ForceLine:
+    def __init__(
+        self,
+        base: np.array,
+        force_vector: np.array,
+        ax: Axes3D,
+        force_scale=0.25,
+        color="blue",
+    ):
+        self.base = base
+        self.force_scale = force_scale
+        self.force_vector = force_vector * self.force_scale
+        self.base_line = np.zeros((2, 3))
+        self.base_line[0, :] = self.base
+        self.base_line[1, :] = self.force_vector + self.base
+        line_data = self.base_line.copy()
+        self.line = art3d.Line3D(
+            line_data[:, 0], line_data[:, 1], line_data[:, 2], color=color
+        )
+        ax.add_line(self.line)
+
+    def update_base(self, force_vector: np.array):
+        self.force_vector = force_vector * self.force_scale
+        self.base_line[1, :] = self.force_vector + self.base
+        return self.base_line
+
+    def update_line(self, line_data):
+        self.line.set_data_3d(
+            line_data[:, 0],
+            line_data[:, 1],
+            line_data[:, 2],
+        )
+
+
+def animate(states, controls, aircraft: Aircraft, force_scale=0.5, follow=False):
+    elevon_chord = aircraft.chord * aircraft.elevon_percentage
+    wing_chord = aircraft.chord - elevon_chord
+    wing_front_back = aircraft.chord * 0.5
+    wing_elevon_front = -wing_front_back + elevon_chord
+    wing_tip = aircraft.wingspan * 0.5
+    wing = np.zeros((4, 3))
+    # front right
+    wing[0, 0] = wing_front_back
+    wing[0, 1] = wing_tip
+    wing[0, 2] = 0.0
+    # front left
+    wing[1, 0] = wing_front_back
+    wing[1, 1] = -wing_tip
+    wing[1, 2] = 0.0
+    # back left
+    wing[2, 0] = wing_elevon_front
+    wing[2, 1] = -wing_tip
+    wing[2, 2] = 0.0
+    # back right
+    wing[3, 0] = wing_elevon_front
+    wing[3, 1] = wing_tip
+    wing[3, 2] = 0.0
+
+    right_elevon = np.zeros((4, 3))
+    # front right
+    right_elevon[0, 0] = wing_elevon_front
+    right_elevon[0, 1] = wing_tip
+    right_elevon[0, 2] = 0.0
+    # front left
+    right_elevon[1, 0] = wing_elevon_front
+    right_elevon[1, 1] = 0.0
+    right_elevon[1, 2] = 0.0
+    # back left
+    right_elevon[2, 0] = -wing_front_back
+    right_elevon[2, 1] = 0.0
+    right_elevon[2, 2] = 0.0
+    # back right
+    right_elevon[3, 0] = -wing_front_back
+    right_elevon[3, 1] = wing_tip
+    right_elevon[3, 2] = 0.0
+
+    left_elevon = np.zeros((4, 3))
+    # front right
+    left_elevon[0, 0] = wing_elevon_front
+    left_elevon[0, 1] = 0.0
+    left_elevon[0, 2] = 0.0
+    # front left
+    left_elevon[1, 0] = wing_elevon_front
+    left_elevon[1, 1] = -wing_tip
+    left_elevon[1, 2] = 0.0
+    # back left
+    left_elevon[2, 0] = -wing_front_back
+    left_elevon[2, 1] = -wing_tip
+    left_elevon[2, 2] = 0.0
+    # back right
+    left_elevon[3, 0] = -wing_front_back
+    left_elevon[3, 1] = 0.0
+    left_elevon[3, 2] = 0.0
+
+    wing = wing * 1
+    right_elevon = right_elevon * 1
+    left_elevon = left_elevon * 1
+    angles = np.linspace(0, 2 * np.pi, 6, endpoint=False)
+    x = np.cos(angles)
+    y = np.sin(angles)
+
+    # Close the hexagon by repeating the first vertex
+    x = np.append(x, x[0])
+    y = np.append(y, y[0])
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    poly = art3d.Poly3DCollection(
+        [wing.copy(), right_elevon.copy(), left_elevon.copy()],
+        alpha=0.7,
+        color=["blue", "green", "red"],
+    )
+
+    ax.add_collection3d(poly)
+
+    # force arrows
+    #   13:16         16:19         19:22         22:25     25:28     28:31           31:34          34:37          37:40            40:43           43:46
+    # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
+    motor_thr_l = ForceLine(aircraft.p_l, states[13:16, 0], ax, force_scale)
+    motor_thr_r = ForceLine(aircraft.p_r, states[16:19, 0], ax, force_scale)
+    motor_drag_l = ForceLine(aircraft.p_l, states[19:22, 0], ax, force_scale, "green")
+    motor_drag_r = ForceLine(aircraft.p_r, states[22:25, 0], ax, force_scale, "green")
+    lift = ForceLine(
+        np.array([aircraft.chord * 0.25, 0, 0]),
+        states[25:28, 0],
+        ax,
+        force_scale,
+        "cyan",
+    )
+    force_gravity = ForceLine(
+        np.array([aircraft.chord * 0.25 + aircraft.delta_r, 0, 0]),
+        states[28:31, 0],
+        ax,
+        force_scale,
+        "red",
+    )
+    elv_lift_reduc = ForceLine(
+        [wing[0, 0] - wing_chord - elevon_chord * 0.5, 0, 0],
+        states[31:34, 0],
+        ax,
+        force_scale,
+        "green",
+    )
+    rot_lift_wing = ForceLine([0, 0, 0], states[34:37, 0], ax, force_scale)
+    elv_thr_redir_l = ForceLine(
+        [
+            wing[0, 0] - wing_chord - elevon_chord * 0.5,
+            -aircraft.wingspan * 0.25,
+            0,
+        ],
+        states[37:40, 0],
+        ax,
+        force_scale,
+    )
+    elv_thr_redir_r = ForceLine(
+        [
+            wing[0, 0] - wing_chord - elevon_chord * 0.5,
+            aircraft.wingspan * 0.25,
+            0,
+        ],
+        states[40:43, 0],
+        ax,
+        force_scale,
+    )
+    rot_lift_reduc_elv = ForceLine(
+        [0, 0, 0],
+        states[43:46, 0],
+        ax,
+        force_scale,
+    )
+    x_min = states[0, 0] - 1
+    x_max = states[0, 0] + 1
+    y_min = states[1, 0] - 1
+    y_max = states[1, 0] + 1
+    z_min = states[2, 0] - 1
+    z_max = states[2, 0] + 1
+    # xy_min = min(min(states[0, :]), min(states[1, :]))
+    # yx_max = max(max(states[0, :]), max(states[1, :]))
+    # yx = max(abs(xy_min), abs(yx_max))
+    # ax.set_xlim(-yx, yx)
+    # ax.set_ylim(-yx, yx)
+    # ax.set_zlim(min(states[2, :]), max(states[2, :]))
+    ax.set_aspect("equalxy")
+    # ax.set_ylim(-1, 1)
+    # ax.set_zlim(-1, 1)
+    # States x
+    ################## Linear #############           ############# Rotational ##########################
+    #   0      1      2      3      4       5      6       7       8       9      10       11       12
+    # pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, quat_w, quat_x, quat_y, quat_z, omega_x, omega_y, omega_z
+
+    # Inputs u
+    #    0       1         2          3
+    # flap_l, flap_r, motor_w_l, motor_w_r
+    def update(frame):
+        # angle = np.pi * 2 / 50 * frame
+        # elevon_angle = np.deg2rad(15) * np.sin(np.pi * 2 / 50 * frame)
+        left_elevon_rot = R.from_rotvec(controls[0, frame * 2] * np.array([0, 1, 0]))
+        right_elevon_rot = R.from_rotvec(controls[1, frame * 2] * np.array([0, 1, 0]))
+
+        # body_rot = R.from_rotvec(-angle * np.array([0, 0, 1]))
+        # body_rot = R.from_euler("xyz", [np.deg2rad(75), 0, -angle])
+        body_rot = R.from_quat(
+            [
+                states[6, frame * 2],
+                states[7, frame * 2],
+                states[8, frame * 2],
+                states[9, frame * 2],
+            ],
+            scalar_first=True,
+        )
+
+        normal_frame = R.from_euler("xyz", [np.pi, 0, 0])
+        new_left_elevon = left_elevon - [wing_elevon_front, 0, 0]
+        new_right_elevon = right_elevon - [wing_elevon_front, 0, 0]
+        new_left_elevon = left_elevon_rot.apply(new_left_elevon)
+        new_right_elevon = right_elevon_rot.apply(new_right_elevon)
+        new_left_elevon += [wing_elevon_front, 0, 0]
+        new_right_elevon += [wing_elevon_front, 0, 0]
+        mtr_thr_l_data = motor_thr_l.update_base(states[13:16, frame * 2] * force_scale)
+        mtr_thr_r_data = motor_thr_r.update_base(states[16:19, frame * 2] * force_scale)
+        mtr_drg_l_data = motor_drag_l.update_base(
+            states[19:22, frame * 2] * force_scale
+        )
+        mtr_drg_r_data = motor_drag_r.update_base(
+            states[22:25, frame * 2] * force_scale
+        )
+        lift_data = lift.update_base(states[25:28, frame * 2] * force_scale)
+        force_gravity_data = force_gravity.update_base(
+            states[28:31, frame * 2] * force_scale
+        )
+        elv_lift_reduc_data = elv_lift_reduc.update_base(
+            states[31:34, frame * 2] * force_scale
+        )
+        rot_lift_wing_data = rot_lift_wing.update_base(
+            states[34:37, frame * 2] * force_scale
+        )
+        elv_thr_redir_l_data = elv_thr_redir_l.update_base(
+            states[37:40, frame * 2] * force_scale
+        )
+        elv_thr_redir_r_data = elv_thr_redir_r.update_base(
+            states[40:43, frame * 2] * force_scale
+        )
+        rot_lift_reduc_elv_data = rot_lift_reduc_elv.update_base(
+            states[43:46, frame * 2] * force_scale
+        )
+        # move to quarter chord
+        full_body = np.concatenate(
+            (
+                wing,
+                new_right_elevon,
+                new_left_elevon,
+                mtr_thr_l_data,
+                mtr_thr_r_data,
+                mtr_drg_l_data,
+                mtr_drg_r_data,
+                lift_data,
+                force_gravity_data,
+                elv_lift_reduc_data,
+                rot_lift_wing_data,
+                elv_thr_redir_l_data,
+                elv_thr_redir_r_data,
+                rot_lift_reduc_elv_data,
+            ),
+            axis=0,
+        ) + np.array([-aircraft.chord * 0.25, 0, 0])
+
+        # rotate to correct body rot
+        full_body = body_rot.apply(full_body)
+        full_body = normal_frame.apply(full_body)
+        # move to proper location
+        full_body += np.array(
+            [states[0, frame * 2], -states[1, frame * 2], -states[2, frame * 2]]
+        )
+
+        new_wing = full_body[:4, :]
+        new_right_elevon = full_body[4:8, :]
+        new_left_elevon = full_body[8:12, :]
+        mtr_thr_l_data = full_body[12:14, :]
+        mtr_thr_r_data = full_body[14:16, :]
+        mtr_drg_l_data = full_body[16:18, :]
+        mtr_drg_r_data = full_body[18:20, :]
+        lift_data = full_body[20:22, :]
+        force_gravity_data = full_body[22:24, :]
+        elv_lift_reduc_data = full_body[24:26, :]
+        rot_lift_wing_data = full_body[26:28, :]
+        elv_thr_redir_l_data = full_body[28:30, :]
+        elv_thr_redir_r_data = full_body[30:32, :]
+        rot_lift_reduc_elv_data = full_body[32:34, :]
+
+        poly.set_verts([new_wing, new_right_elevon, new_left_elevon])
+        motor_thr_l.update_line(mtr_thr_l_data)
+        motor_thr_r.update_line(mtr_thr_r_data)
+        motor_drag_l.update_line(mtr_drg_l_data)
+        motor_drag_r.update_line(mtr_drg_r_data)
+        lift.update_line(lift_data)
+        force_gravity.update_line(force_gravity_data)
+        elv_lift_reduc.update_line(elv_lift_reduc_data)
+        rot_lift_wing.update_line(rot_lift_wing_data)
+        elv_thr_redir_l.update_line(elv_thr_redir_l_data)
+        elv_thr_redir_r.update_line(elv_thr_redir_r_data)
+        rot_lift_reduc_elv.update_line(rot_lift_reduc_elv_data)
+
+        # Setting the size of the view
+        if follow:
+            ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
+            ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
+            ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+        else:
+            if frame == 0:
+                ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
+                ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
+                ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+            x_min, x_max = ax.get_xlim()
+            y_min, y_max = ax.get_ylim()
+            z_min, z_max = ax.get_zlim()
+            x_min = min(x_min, states[0, frame * 2] - 1)
+            x_max = max(x_max, states[0, frame * 2] + 1)
+            y_min = min(y_min, -states[1, frame * 2] - 1)
+            y_max = max(y_max, -states[1, frame * 2] + 1)
+            z_min = min(z_min, -states[2, frame * 2] - 1)
+            z_max = max(z_max, -states[2, frame * 2] + 1)
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, y_max)
+            ax.set_zlim(z_min, z_max)
+        ax.set_aspect("equal")
+        # return poly
+
+    ani = FuncAnimation(
+        fig, update, frames=range(int(states.shape[1] / 2)), interval=50, blit=False
+    )
+
+    plt.show()
+
+
+def animate_simple(states, controls, aircraft: Aircraft):
+    wing = np.zeros((4, 3))
+    # front right
+    wing[0, 0] = aircraft.chord / 2
+    wing[0, 1] = aircraft.wingspan / 2
+    wing[0, 2] = 0.0
+    # front left
+    wing[1, 0] = aircraft.chord / 2
+    wing[1, 1] = -aircraft.wingspan / 2
+    wing[1, 2] = 0.0
+    # back left
+    wing[2, 0] = 0.0
+    wing[2, 1] = -aircraft.wingspan / 2
+    wing[2, 2] = 0.0
+    # back right
+    wing[3, 0] = 0.0
+    wing[3, 1] = aircraft.wingspan / 2
+    wing[3, 2] = 0.0
+
+    right_elevon = np.zeros((4, 3))
+    # front right
+    right_elevon[0, 0] = 0.0
+    right_elevon[0, 1] = aircraft.wingspan / 2
+    right_elevon[0, 2] = 0.0
+    # front left
+    right_elevon[1, 0] = 0.0
+    right_elevon[1, 1] = 0.0
+    right_elevon[1, 2] = 0.0
+    # back left
+    right_elevon[2, 0] = -aircraft.chord / 2
+    right_elevon[2, 1] = 0.0
+    right_elevon[2, 2] = 0.0
+    # back right
+    right_elevon[3, 0] = -aircraft.chord / 2
+    right_elevon[3, 1] = aircraft.wingspan / 2
+    right_elevon[3, 2] = 0.0
+
+    left_elevon = np.zeros((4, 3))
+    # front right
+    left_elevon[0, 0] = 0.0
+    left_elevon[0, 1] = 0.0
+    left_elevon[0, 2] = 0.0
+    # front left
+    left_elevon[1, 0] = 0.0
+    left_elevon[1, 1] = -aircraft.wingspan / 2
+    left_elevon[1, 2] = 0.0
+    # back left
+    left_elevon[2, 0] = -aircraft.chord / 2
+    left_elevon[2, 1] = -aircraft.wingspan / 2
+    left_elevon[2, 2] = 0.0
+    # back right
+    left_elevon[3, 0] = -aircraft.chord / 2
+    left_elevon[3, 1] = 0.0
+    left_elevon[3, 2] = 0.0
+
+    wing = wing * 1
+    right_elevon = right_elevon * 1
+    left_elevon = left_elevon * 1
+    angles = np.linspace(0, 2 * np.pi, 6, endpoint=False)
+    x = np.cos(angles)
+    y = np.sin(angles)
+
+    # Close the hexagon by repeating the first vertex
+    x = np.append(x, x[0])
+    y = np.append(y, y[0])
+
+    print(np.concatenate((wing, right_elevon, left_elevon), axis=0).shape)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+    print(ax)
+    poly = art3d.Poly3DCollection(
+        [wing.copy(), right_elevon.copy(), left_elevon.copy()],
+        alpha=0.7,
+        color=["red", "blue", "green"],
+    )
+
+    ax.add_collection3d(poly)
+
+    print(
+        min(states[0, :]),
+        max(states[0, :]),
+        min(states[1, :]),
+        max(states[1, :]),
+        min(states[2, :]),
+        max(states[2, :]),
+    )
+    x_min = states[0, 0] - 1
+    x_max = states[0, 0] + 1
+    y_min = states[1, 0] - 1
+    y_max = states[1, 0] + 1
+    z_min = states[2, 0] - 1
+    z_max = states[2, 0] + 1
+    # xy_min = min(min(states[0, :]), min(states[1, :]))
+    # yx_max = max(max(states[0, :]), max(states[1, :]))
+    # yx = max(abs(xy_min), abs(yx_max))
+    # ax.set_xlim(-yx, yx)
+    # ax.set_ylim(-yx, yx)
+    # ax.set_zlim(min(states[2, :]), max(states[2, :]))
+    ax.set_aspect("equalxy")
+    # ax.set_ylim(-1, 1)
+    # ax.set_zlim(-1, 1)
+    # States x
+    ################## Linear #############           ############# Rotational ##########################
+    #   0      1      2      3      4       5      6       7       8       9      10       11       12
+    # pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, quat_w, quat_x, quat_y, quat_z, omega_x, omega_y, omega_z
+
+    # Inputs u
+    #    0       1         2          3
+    # flap_l, flap_r, motor_w_l, motor_w_r
+    def update(frame):
+        # angle = np.pi * 2 / 50 * frame
+        # elevon_angle = np.deg2rad(15) * np.sin(np.pi * 2 / 50 * frame)
+        left_elevon_rot = R.from_rotvec(controls[0, frame * 2] * np.array([0, 1, 0]))
+        right_elevon_rot = R.from_rotvec(controls[1, frame * 2] * np.array([0, 1, 0]))
+
+        # body_rot = R.from_rotvec(-angle * np.array([0, 0, 1]))
+        # body_rot = R.from_euler("xyz", [np.deg2rad(75), 0, -angle])
+        body_rot = R.from_quat(
+            [
+                states[6, frame * 2],
+                states[7, frame * 2],
+                states[8, frame * 2],
+                states[9, frame * 2],
+            ],
+            scalar_first=True,
+        )
+
+        normal_frame = R.from_euler("xyz", [np.pi, 0, 0])
+
+        new_left_elevon = left_elevon_rot.apply(left_elevon)
+        new_right_elevon = right_elevon_rot.apply(right_elevon)
+        # move to quarter chord
+        full_body = np.concatenate(
+            (wing, new_right_elevon, new_left_elevon),
+            axis=0,
+        ) + np.array([-aircraft.chord * 0.25, 0, 0])
+
+        # rotate to correct body rot
+        full_body = body_rot.apply(full_body)
+        full_body = normal_frame.apply(full_body)
+        # move to proper location
+        full_body += np.array(
+            [states[0, frame * 2], -states[1, frame * 2], -states[2, frame * 2]]
+        )
+
+        new_wing = full_body[:4, :]
+        new_right_elevon = full_body[4:8, :]
+        new_left_elevon = full_body[8:12, :]
+        mtr_thr_l_data = full_body[12:14, :]
+        mtr_thr_r_data = full_body[14:16, :]
+        poly.set_verts([new_wing, new_right_elevon, new_left_elevon])
+
+        # Setting the size of the view
+        # ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
+        # ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
+        # ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+        if frame == 0:
+            ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
+            ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
+            ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
+        z_min, z_max = ax.get_zlim()
+        x_min = min(x_min, states[0, frame * 2] - 1)
+        x_max = max(x_max, states[0, frame * 2] + 1)
+        y_min = min(y_min, -states[1, frame * 2] - 1)
+        y_max = max(y_max, -states[1, frame * 2] + 1)
+        z_min = min(z_min, -states[2, frame * 2] - 1)
+        z_max = max(z_max, -states[2, frame * 2] + 1)
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        ax.set_zlim(z_min, z_max)
+        ax.set_aspect("equal")
+        # return poly
+
+    ani = FuncAnimation(
+        fig, update, frames=range(int(states.shape[1] / 2)), interval=50, blit=False
+    )
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    animate()

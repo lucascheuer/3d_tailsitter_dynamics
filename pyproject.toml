@@ -1,0 +1,14 @@
+[project]
+name = "3d-glider"
+version = "0.1.0"
+description = "A fixed wing simulator"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.10.3",
+    'numpy>=1.24',
+    "numpy-quaternion>=2024.0.9",
+    "pyqt6>=6.9.1",
+    "scipy>=1.16.0",
+    "sympy>=1.14.0",
+]
