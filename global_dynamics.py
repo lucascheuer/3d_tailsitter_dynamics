@@ -9,6 +9,7 @@ class Aircraft:
         moment_of_inertia,
         C_t,
         C_m,
+        max_omega,
         S,
         S_p,
         C_d_naught,
@@ -31,6 +32,7 @@ class Aircraft:
         self.moment_of_inertia_inv = np.linalg.inv(self.moment_of_inertia)
         self.C_t = C_t  # propeller coefficient of thrust
         self.C_m = C_m  # propeller coefficient of moment
+        self.max_omega = max_omega
         self.S = S  # wing surface area?
         self.S_p = S_p  # propeller disc area
         self.C_d_naught = C_d_naught  # minimum drag coefficient. Drag at 0 aoa for symmetrical airfoil
@@ -139,6 +141,8 @@ def dynamics(
     motor_w_r = u[3]
     flap_l = np.clip(flap_l, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
     flap_r = np.clip(flap_r, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
+    motor_w_l = np.clip(motor_w_l, 0, aircraft.max_omega)
+    motor_w_r = np.clip(motor_w_r, 0, aircraft.max_omega)
 
     ##### Forces ####
     # Gravity
