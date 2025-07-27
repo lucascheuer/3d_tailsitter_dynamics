@@ -18,18 +18,19 @@ def main():
     moment_of_inertia[1, 1] = 1 / 12 * mass * (depth**2 + chord**2)
     moment_of_inertia[2, 2] = 1 / 12 * mass * (wingspan**2 + depth**2)
     C_t = 0.00001
-    C_m = 0  # 0.00001
+    C_m = 0.00000001
     S = wingspan * chord  # surface area
     S_p = np.pi * (0.55 * 0.25) ** 2
     C_d_naught = 0.01
     C_y_naught = 0.17
     C_l_p = 0.05  # roll damping
-    C_m_q = 0.25  # pitch damping
+    C_m_q = 0.025  # pitch damping
     C_n_r = 0.005  # yaw damping
     elevon_effectiveness_linear = np.array([0, 0.5, 0])
     elevon_effectiveness_rotational = np.array([0, -0.5, 0])
     elevon_percentage = 0.5
-
+    max_elevon_angle = np.deg2rad(30)
+    max_omega = 400
     delta_r = chord * 0.1
     p_l = np.array([0, -wingspan / 4, 0])
     p_r = np.array([0, wingspan / 4, 0])
@@ -39,6 +40,7 @@ def main():
         moment_of_inertia,
         C_t,
         C_m,
+        max_omega,
         S,
         S_p,
         C_d_naught,
@@ -49,6 +51,7 @@ def main():
         elevon_effectiveness_linear,
         elevon_effectiveness_rotational,
         elevon_percentage,
+        max_elevon_angle,
         wingspan,
         chord,
         delta_r,
@@ -56,9 +59,10 @@ def main():
         p_r,
     )
     environment = Environment(9.81, 1.225)
+
     np.set_printoptions(suppress=True, precision=6)
     orientation_naught = R.from_euler(
-        "XYZ", [np.deg2rad(15), np.deg2rad(15), np.deg2rad(0)]
+        "XYZ", [np.deg2rad(0), np.deg2rad(0), np.deg2rad(0)]
     )
     quat_0 = orientation_naught.as_quat(scalar_first=True)
     v_body_0 = orientation_naught.apply(np.array([5, 0, 0]))
@@ -87,14 +91,13 @@ def main():
             0,
         ]
     )
-    control_0 = np.array([np.deg2rad(-15), np.deg2rad(-15), 205, 200])
+    control_0 = np.array([np.deg2rad(-15), np.deg2rad(-15), 250, 250])
     # initial_state = dynamics(0, state_0, control_0, aircraft, environment, [1])
     # state_0[13:46] = initial_state[13:46]
     t_start = 0
     t_end = 5
     hz = 100.0
     dt = 1 / hz
-
     t_step_count = int((t_end - t_start) * hz)
     t_steps = np.linspace(t_start, t_end, t_step_count)
     states = np.zeros((13, t_step_count))
@@ -104,16 +107,12 @@ def main():
     controls[:, 0] = control_0
     for step, time_step in zip(range(1, len(t_steps)), t_steps):
         state_0 = states[:, step - 1]
-        # if time_step > 0.5:  # and time_step < 1.5:
-        #     # control_0[:2] = np.deg2rad(0)
-        #     control_0[2:] = 0
-
         control_f = control_0
         solution = solve_ivp(
             dynamics,
             [time_step, time_step + dt],
             state_0,
-            args=(control_0, aircraft, environment, force_data[:, step]),
+            args=(control_f, aircraft, environment, force_data[:, step]),
             method="RK45",
             rtol=1e-6,
             atol=1e-12,
