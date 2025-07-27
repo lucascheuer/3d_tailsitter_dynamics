@@ -8,6 +8,7 @@ from scipy.spatial.transform import Rotation as R
 
 def main():
     follow = True
+    trail = True
     mass = 0.2
     wingspan = 0.55
     chord = 0.15
@@ -56,7 +57,9 @@ def main():
     )
     environment = Environment(9.81, 1.225)
     np.set_printoptions(suppress=True, precision=6)
-    orientation_naught = R.from_rotvec(np.deg2rad(0) * np.array([0, 1, 0]))
+    orientation_naught = R.from_euler(
+        "XYZ", [np.deg2rad(15), np.deg2rad(15), np.deg2rad(0)]
+    )
     quat_0 = orientation_naught.as_quat(scalar_first=True)
     v_body_0 = orientation_naught.apply(np.array([5, 0, 0]))
     # States x
@@ -84,7 +87,7 @@ def main():
             0,
         ]
     )
-    control_0 = np.array([np.deg2rad(-15), np.deg2rad(-15), 200, 200])
+    control_0 = np.array([np.deg2rad(-15), np.deg2rad(-15), 205, 200])
     # initial_state = dynamics(0, state_0, control_0, aircraft, environment, [1])
     # state_0[13:46] = initial_state[13:46]
     t_start = 0
@@ -120,7 +123,9 @@ def main():
         states[:, step] = state_f
         controls[:, step] = control_f
 
-    animate(states, controls, aircraft, force_data=force_data, follow=follow)
+    animate(
+        states, controls, aircraft, force_data=force_data, follow=follow, trail=trail
+    )
 
     plt.show()
 

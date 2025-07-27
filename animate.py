@@ -45,9 +45,19 @@ class ForceLine:
         )
 
 
+paused = False
+
+
 def animate(
-    states, controls, aircraft: Aircraft, force_data=None, force_scale=0.5, follow=False
+    states,
+    controls,
+    aircraft: Aircraft,
+    force_data=None,
+    force_scale=0.5,
+    follow=False,
+    trail=False,
 ):
+
     elevon_chord = aircraft.chord * aircraft.elevon_percentage
     wing_chord = aircraft.chord - elevon_chord
     wing_front_back = aircraft.chord * 0.5
@@ -127,7 +137,8 @@ def animate(
     )
 
     ax.add_collection3d(poly)
-
+    if trail:
+        (line,) = ax.plot([0], [0], color="k")
     # force arrows
     #     0:3         3:6            6:9         9:12       12:15     15:18           18:21              21:24            24:27           27:30           30:33           33:36
     # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc_l, elv_lift_reduc_r, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
@@ -218,6 +229,14 @@ def animate(
     def update(frame):
         # angle = np.pi * 2 / 50 * frame
         # elevon_angle = np.deg2rad(15) * np.sin(np.pi * 2 / 50 * frame)
+        if trail:
+            line.set_data_3d(
+                states[0, : frame * 2 + 1 : 2],
+                -states[1, : frame * 2 + 1 : 2],
+                -states[2, : frame * 2 + 1 : 2],
+            )
+            # print(states[0, : frame * 2 + 1])
+            # print()
         left_elevon_rot = R.from_rotvec(controls[0, frame * 2] * np.array([0, 1, 0]))
         right_elevon_rot = R.from_rotvec(controls[1, frame * 2] * np.array([0, 1, 0]))
 
@@ -364,6 +383,15 @@ def animate(
         fig, update, frames=range(int(states.shape[1] / 2)), interval=50, blit=False
     )
 
+    def toggle_pause(*args, **kwargs):
+        global paused
+        if paused:
+            ani.resume()
+        else:
+            ani.pause()
+        paused = not paused
+
+    fig.canvas.mpl_connect("button_release_event", toggle_pause)
     plt.show()
 
 
@@ -541,10 +569,6 @@ def animate_simple(states, controls, aircraft: Aircraft):
         ax.set_zlim(z_min, z_max)
         ax.set_aspect("equal")
         # return poly
-
-    ani = FuncAnimation(
-        fig, update, frames=range(int(states.shape[1] / 2)), interval=50, blit=False
-    )
 
     plt.show()
 
