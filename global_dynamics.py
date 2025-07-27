@@ -19,6 +19,7 @@ class Aircraft:
         elevon_effectiveness_linear,
         elevon_effectiveness_rotational,
         elevon_percentage,
+        max_elevon_angle,
         wingspan,
         chord,
         delta_r,
@@ -44,6 +45,7 @@ class Aircraft:
         self.elevon_effectiveness_linear = elevon_effectiveness_linear  # a 3 vector that defines how the camber changes per axis with elevon angle
         self.elevon_effectiveness_rotational = elevon_effectiveness_rotational
         self.elevon_percentage = elevon_percentage
+        self.max_elevon_angle = max_elevon_angle
         self.wingspan = wingspan
         self.chord = chord
         self.B = np.zeros((3, 3))
@@ -135,6 +137,8 @@ def dynamics(
     flap_r = u[1]
     motor_w_l = u[2]
     motor_w_r = u[3]
+    flap_l = np.clip(flap_l, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
+    flap_r = np.clip(flap_r, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
 
     ##### Forces ####
     # Gravity
