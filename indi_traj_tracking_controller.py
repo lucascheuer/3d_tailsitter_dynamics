@@ -27,6 +27,7 @@ class SimpleAircraft:
     ):
         self.mass = mass
         self.moment_of_inertia = moment_of_inertia
+        self.moment_of_inertia_inv = np.linalg.inv(self.moment_of_inertia)
         self.flap_length_x = (
             flap_length_x  # distance to flap aerocenter from cg along x
         )
@@ -47,8 +48,29 @@ class SimpleAircraft:
         self.C_u = C_u  # motor+prop torque coeff
 
 
+def matrix_cross(vector):
+    return np.array(
+        [
+            [0, -vector[2], vector[1]],
+            [vector[2], 0, -vector[0]],
+            [-vector[1], vector[0], 0],
+        ]
+    )
+
+
 class TrackingController:
-    def __init__(self, hz, aircraft: SimpleAircraft, environment: Environment):
+    def __init__(
+        self,
+        quat_gain,
+        omega_gain,
+        hz,
+        aircraft: SimpleAircraft,
+        environment: Environment,
+    ):
+        self.quat_gain = quat_gain
+        self.omega_gain = omega_gain
+        self.time = 0
+        self.hz = hz
         self.dt = 1 / hz
         self.aircraft = aircraft
         self.environment = environment
@@ -68,10 +90,8 @@ class TrackingController:
         self.force_inertial_lpf = np.zeros(3)
         self.force_flaps_body_lpf_hpf = np.zeros(3)
         # saved moments
-        self.moment_body_filt = np.zeros(0)
+        self.moment_body_filt = np.zeros(3)
         self.quaternion = np.quaternion(1, 0, 0, 0)
-        self.quat_gain = np.eye(3)
-        self.omega_gain = np.eye(3)
 
         filter_order = 2
         cutoff_freq = 15
@@ -82,16 +102,16 @@ class TrackingController:
             filter_order, normalized_cutoff, btype="low", output="sos"
         )
 
-        self.acceleration_x_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.acceleration_y_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.acceleration_z_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.omega_body_x_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.omega_body_y_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.omega_body_z_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.flap_l_lpf_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.flap_r_lpf_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.motor_w_l_filt_state = signal.sosfilt_zi(self.sos_lpf)
-        self.motor_w_r_filt_state = signal.sosfilt_zi(self.sos_lpf)
+        self.acceleration_x_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.acceleration_y_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.acceleration_z_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.omega_body_x_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.omega_body_y_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.omega_body_z_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.flap_l_lpf_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.flap_r_lpf_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.motor_w_l_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
+        self.motor_w_r_filt_state = signal.sosfilt_zi(self.sos_lpf) * 0
 
         filter_order = 2
         cutoff_freq = 1
@@ -102,15 +122,38 @@ class TrackingController:
             filter_order, normalized_cutoff, btype="high", output="sos"
         )
 
-        self.flap_l_hpf_filt_state = signal.sosfilt_zi(self.sos_hpf)
-        self.flap_r_hpf_filt_state = signal.sosfilt_zi(self.sos_hpf)
+        self.flap_l_hpf_filt_state = signal.sosfilt_zi(self.sos_hpf) * 0
+        self.flap_r_hpf_filt_state = signal.sosfilt_zi(self.sos_hpf) * 0
+        self.moment_command = np.array([0, 0.0, 0])
 
-    def update(self, thrust_des, omega_dot_des, x, u, acceleration):
-        self.update_estimates(x, u, acceleration)
-
-        moment_command = self.control_angular_acceleration(omega_dot_des)
-        new_u = self.thrust_moment_transform(thrust_des, moment_command)
+    def update(self, thrust_des, quat_des, omega_des, x, u, acceleration, omega_dot):
+        self.update_estimates(x, u, acceleration, omega_dot)
+        self.time += self.dt
+        self.thrust_des = thrust_des
+        self.quat_des = quat_des
+        self.omega_des = omega_des
+        # self.omega_dot_des = self.control_attitude_angular_rate(quat_des, omega_des)
+        self.omega_dot_des = np.array([0, 10 * np.sin(self.time * np.pi * 2), 0])
+        self.moment_command = self.control_angular_acceleration(self.omega_dot_des)
+        new_u = self.thrust_moment_transform(thrust_des, self.moment_command)
+        # print("moment command", self.moment_command, end="\t")
         return new_u
+
+    def get_desired(self):
+        return np.concatenate(
+            ([self.thrust_des], self.quat_des, self.omega_des, self.omega_dot_des)
+        )
+
+    def get_estimated_moment(self):
+        return self.moment_body_filt
+
+    def get_commanded_moment(self):
+        return self.moment_command
+
+    def get_filtered_data(self):
+        return np.concatenate(
+            (self.acceleration_filt, self.omega_body_filt, self.omega_dot_body_filt)
+        )
 
     # States x
     ################## Linear #############           ############# Rotational ##########################
@@ -120,7 +163,7 @@ class TrackingController:
     # Inputs u
     #    0       1         2          3
     # flap_l, flap_r, motor_w_l, motor_w_r
-    def update_estimates(self, x, u, acceleration):
+    def update_estimates(self, x, u, acceleration, omega_dot):
         self.velocity_body = np.array([x[3], x[4], x[5]])
         self.velocity_magnitude = np.linalg.norm(self.velocity_body)
         quat_w = x[6]
@@ -130,13 +173,14 @@ class TrackingController:
         self.body_to_inertial_rotation = R.from_quat(
             (quat_w, quat_x, quat_y, quat_z), scalar_first=True
         )
+        self.quaternion = np.quaternion(quat_w, quat_x, quat_y, quat_z)
 
         self.low_pass_inputs(x[10:13], u, acceleration)
-
-        self.omega_dot_body_filt = self.dt * (
-            self.omega_body_filt - self.omega_body_filt_prev
-        )
-        self.omega_body_filt_prev = self.omega_body_filt
+        self.omega_dot_body_filt = omega_dot.copy()
+        # self.omega_dot_body_filt = self.hz * (
+        #     self.omega_body_filt - self.omega_body_filt_prev
+        # )
+        self.omega_body_filt_prev = self.omega_body_filt.copy()
 
         # calculate force estimates
 
@@ -163,7 +207,7 @@ class TrackingController:
             * self.velocity_magnitude
             * self.velocity_body[0]
         )
-        self.force_flaps_body_lpf_hpf = np.array(
+        force_flaps_body_lpf_hpf = np.array(
             [0, 0, force_flaps_l_body_lpf_hpf + force_flaps_r_body_lpf_hpf]
         )
 
@@ -180,9 +224,7 @@ class TrackingController:
         )
 
         force_body_filt = (
-            force_thrust_body_filt
-            + self.force_flaps_body_lpf_hpf
-            + force_wing_body_filt
+            force_thrust_body_filt + force_flaps_body_lpf_hpf + force_wing_body_filt
         )
 
         # caclulate moments
@@ -215,13 +257,162 @@ class TrackingController:
                 0,
             ]
         )
+        # wing_moment = matrix_cross(np.array([-0.015, 0, 0])) @ force_wing_body_filt
 
         self.moment_body_filt = (
-            thrust_moment_body_filt + motor_torque_moment_body_filt + flap_moment_body
+            thrust_moment_body_filt
+            + motor_torque_moment_body_filt
+            + flap_moment_body
+            # + wing_moment
         )
+        # print(self.moment_body_filt[1], end="\t")
         self.force_inertial_lpf = self.body_to_inertial_rotation.apply(force_body_filt)
 
-        return 0
+    def dynamics(self, x, u):
+        quat_w = x[6]
+        quat_x = x[7]
+        quat_y = x[8]
+        quat_z = x[9]
+        velocity_body = np.array([x[3], x[4], x[5]])
+        velocity_magnitude = np.linalg.norm(velocity_body)
+        body_to_inertial_rotation = R.from_quat(
+            (quat_w, quat_x, quat_y, quat_z), scalar_first=True
+        )
+        inertial_to_body_rotation = body_to_inertial_rotation.inv()
+        velocity_inertial = body_to_inertial_rotation.apply(velocity_body)
+        omega_x = x[10]
+        omega_y = x[11]
+        omega_z = x[12]
+        omega_body = np.array([omega_x, omega_y, omega_z])
+        flap_l = u[0]
+        flap_r = u[1]
+        motor_w_l = u[2]
+        motor_w_r = u[3]
+        motor_thrust_l_body_filt = self.aircraft.C_t * motor_w_l**2
+        motor_thrust_r_body_filt = self.aircraft.C_t * motor_w_r**2
+
+        force_thrust_l_body_filt = (1 - self.aircraft.C_d_t) * motor_thrust_l_body_filt
+        force_thrust_r_body_filt = (1 - self.aircraft.C_d_t) * motor_thrust_r_body_filt
+        force_thrust_body_filt = np.array(
+            [force_thrust_l_body_filt + force_thrust_r_body_filt, 0, 0]
+        )
+
+        # flaps force
+        force_flaps_l_body_lpf_hpf = -flap_l * (
+            self.aircraft.delta_C_l_t * motor_thrust_l_body_filt
+            + self.aircraft.delta_C_l_v * velocity_magnitude * velocity_body[0]
+        )
+        force_flaps_r_body_lpf_hpf = -flap_r * (
+            self.aircraft.delta_C_l_t * motor_thrust_r_body_filt
+            + self.aircraft.delta_C_l_v * velocity_magnitude * velocity_body[0]
+        )
+        self.force_flaps_body_lpf_hpf = np.array(
+            [0, 0, force_flaps_l_body_lpf_hpf + force_flaps_r_body_lpf_hpf]
+        )
+
+        # wing force
+        force_wing_body_filt = (
+            np.array(
+                [
+                    -self.aircraft.C_d_v * velocity_body[0],
+                    0,
+                    -self.aircraft.C_l_v * velocity_body[2],
+                ]
+            )
+            * velocity_magnitude
+        )
+        # print(force_wing_body_filt)
+        force_gravity_body = self.aircraft.mass * inertial_to_body_rotation.apply(
+            np.array([0, 0, self.environment.gravity])
+        )
+        force_body_filt = (
+            force_thrust_body_filt
+            + self.force_flaps_body_lpf_hpf
+            + force_wing_body_filt
+            + force_gravity_body
+        )
+        # print(
+        #     force_body_filt,
+        #     force_thrust_body_filt,
+        #     self.force_flaps_body_lpf_hpf,
+        #     force_wing_body_filt,
+        #     force_gravity_body,
+        # )
+        # caclulate moments
+        # thrust
+        thrust_moment_body_filt = np.array(
+            [
+                0,
+                self.aircraft.C_u_T
+                * (motor_thrust_l_body_filt + motor_thrust_r_body_filt),
+                self.aircraft.thrust_l_y
+                * (force_thrust_l_body_filt - force_thrust_r_body_filt),
+            ]
+        )
+
+        # motor torque
+        motor_torque_l_body = -self.aircraft.C_u * motor_w_l**2
+        motor_torque_r_body = self.aircraft.C_u * motor_w_r**2
+
+        motor_torque_moment_body_filt = np.array(
+            [motor_torque_l_body + motor_torque_r_body, 0, 0]
+        )
+
+        # flap moment
+        flap_moment_body = np.array(
+            [
+                self.aircraft.flap_length_y
+                * (force_flaps_r_body_lpf_hpf - force_flaps_l_body_lpf_hpf),
+                self.aircraft.flap_length_x
+                * (force_flaps_r_body_lpf_hpf + force_flaps_l_body_lpf_hpf),
+                0,
+            ]
+        )
+        # wing_moment = matrix_cross(np.array([-0.015, 0, 0])) @ force_wing_body_filt
+        moment_body_filt = (
+            thrust_moment_body_filt
+            + motor_torque_moment_body_filt
+            + flap_moment_body
+            # + wing_moment
+        )
+        # print("moment_body_filt", moment_body_filt)
+        acceleration_body = (
+            force_body_filt / self.aircraft.mass
+            - matrix_cross(omega_body) @ velocity_body
+        )
+
+        angular_acceleration_body = (
+            self.aircraft.moment_of_inertia_inv @ moment_body_filt
+        ) - self.aircraft.moment_of_inertia_inv @ (
+            matrix_cross(omega_body) @ self.aircraft.moment_of_inertia @ omega_body
+        )
+
+        omega_dot_quat = np.array(
+            [
+                [0, -omega_x, -omega_y, -omega_z],
+                [omega_x, 0, omega_z, -omega_y],
+                [omega_y, -omega_z, 0, omega_x],
+                [omega_z, omega_y, -omega_x, 0],
+            ]
+        )
+
+        quat_dot = 0.5 * omega_dot_quat @ np.array([quat_w, quat_x, quat_y, quat_z])
+
+        x_dot = np.zeros(len(x))
+        x_dot[0] = velocity_inertial[0]
+        x_dot[1] = velocity_inertial[1]
+        x_dot[2] = velocity_inertial[2]
+        x_dot[3] = acceleration_body[0]
+        x_dot[4] = acceleration_body[1]
+        x_dot[5] = acceleration_body[2]
+        x_dot[6] = quat_dot[0]
+        x_dot[7] = quat_dot[1]
+        x_dot[8] = quat_dot[2]
+        x_dot[9] = quat_dot[3]
+        x_dot[10] = angular_acceleration_body[0]
+        x_dot[11] = angular_acceleration_body[1]
+        x_dot[12] = angular_acceleration_body[2]
+        return x_dot
 
     def low_pass_inputs(self, omega, u, acceleration):
         # acceleration = [acc_body_x, acc_body_y, acc_body_z]
@@ -234,8 +425,9 @@ class TrackingController:
         # second order butterworth high pass filter at 1hz
         acceleration_data_minus_gravity = self.body_to_inertial_rotation.apply(
             acceleration
-        ) + np.array([0, 0, self.environment.gravity])
+        ) + np.array([0, 0, -self.environment.gravity])
         # acceleration_lpf
+        # self.acceleration_filt = acceleration_data_minus_gravity.copy()
         self.acceleration_filt[0], self.acceleration_x_filt_state = signal.sosfilt(
             self.sos_lpf,
             [acceleration_data_minus_gravity[0]],
@@ -262,6 +454,7 @@ class TrackingController:
         self.omega_body_filt[2], self.omega_body_z_filt_state = signal.sosfilt(
             self.sos_lpf, [omega[2]], zi=self.omega_body_z_filt_state
         )
+        # self.omega_body_filt = omega.copy()
 
         # flap deflection
 
@@ -280,7 +473,8 @@ class TrackingController:
             self.sos_hpf, to_fill, zi=self.flap_r_hpf_filt_state
         )
         self.flap_r_filt = to_fill[0]
-
+        # self.flap_l_filt = u[0]
+        # self.flap_r_filt = u[1]
         # motor speeds
         to_fill, self.motor_w_l_filt_state = signal.sosfilt(
             self.sos_lpf, [u[2]], zi=self.motor_w_l_filt_state
@@ -290,6 +484,8 @@ class TrackingController:
             self.sos_lpf, [u[3]], zi=self.motor_w_r_filt_state
         )
         self.motor_w_r_filt = to_fill[0]
+        # self.motor_w_l_filt = u[2]
+        # self.motor_w_r_filt = u[3]
 
     def control_linear_acceleration(self, acceleration_des, yaw_des):
 
@@ -308,8 +504,9 @@ class TrackingController:
 
         return 0
 
-    def control_attitude_angular_rate(self, quat_des: np.quaternion, omega_des):
-        error_quat = self.quaternion.conj() * quat_des
+    def control_attitude_angular_rate(self, quat_des, omega_des):
+        quat_des_obj = np.quaternion(quat_des[0], quat_des[1], quat_des[2], quat_des[3])
+        error_quat = self.quaternion.conj() * quat_des_obj
 
         angle_error_vector = (
             2
@@ -317,8 +514,10 @@ class TrackingController:
             / np.sqrt(1 - error_quat.w**2)
             * np.array([error_quat.x, error_quat.y, error_quat.z])
         )
+        if np.any(np.isnan(angle_error_vector)):
+            angle_error_vector = np.zeros(3)
         omega_dot_commanded = self.quat_gain @ angle_error_vector + self.omega_gain @ (
-            omega_des - self.omega_lpf
+            omega_des - self.omega_body_filt
         )
         return omega_dot_commanded
 
@@ -327,13 +526,23 @@ class TrackingController:
             self.aircraft.moment_of_inertia @ (omega_dot_des - self.omega_dot_body_filt)
             + self.moment_body_filt
         )
+
+        # moment_commanded = self.aircraft.moment_of_inertia @ omega_dot_des
+        # print("omega dot, moment, moment command")
+        # print(
+        #     self.omega_dot_body_filt,
+        #     self.moment_body_filt,
+        #     moment_commanded,
+        # )
+        # moment_commanded[0] = 0
+        # moment_commanded[2] = 0
         return moment_commanded
 
     def thrust_moment_transform(self, thrust_des, moment_des):
         # thrust = eq 37, 38
         # flap = eq 39
-        delta_thrust = (
-            self.aircraft.mass / self.aircraft.thrust_l_y * (1 - self.aircraft.C_d_t)
+        delta_thrust = moment_des[2] / (
+            self.aircraft.thrust_l_y * (1 - self.aircraft.C_d_t)
         )
         thrust_l_body = (thrust_des + delta_thrust) * 0.5
         thrust_r_body = (thrust_des - delta_thrust) * 0.5
@@ -360,7 +569,7 @@ class TrackingController:
         )
 
         moment_flaps_des = (
-            thrust_des - thrust_moment_body_des - motor_torque_moment_body_des
+            moment_des - thrust_moment_body_des - motor_torque_moment_body_des
         )
 
         v_left = (
@@ -401,4 +610,4 @@ class TrackingController:
         )
         motor_w_l = np.clip(motor_w_l, -self.aircraft.max_omega, 0)
         motor_w_r = np.clip(motor_w_r, 0, self.aircraft.max_omega)
-        return flap_l, flap_r, motor_w_l, motor_w_r
+        return [flap_l, flap_r, motor_w_l, motor_w_r]
