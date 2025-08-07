@@ -10,6 +10,7 @@ class Aircraft:
         C_t,
         C_m,
         max_omega,
+        max_omega_dot,
         S,
         S_p,
         C_d_naught,
@@ -21,6 +22,7 @@ class Aircraft:
         elevon_effectiveness_rotational,
         elevon_percentage,
         max_elevon_angle,
+        max_elevon_dot,
         wingspan,
         chord,
         delta_r,
@@ -33,6 +35,7 @@ class Aircraft:
         self.C_t = C_t  # propeller coefficient of thrust
         self.C_m = C_m  # propeller coefficient of moment
         self.max_omega = max_omega
+        self.max_omega_dot = max_omega_dot
         self.S = S  # wing surface area?
         self.S_p = S_p  # propeller disc area
         self.C_d_naught = C_d_naught  # minimum drag coefficient. Drag at 0 aoa for symmetrical airfoil
@@ -48,6 +51,7 @@ class Aircraft:
         self.elevon_effectiveness_rotational = elevon_effectiveness_rotational
         self.elevon_percentage = elevon_percentage
         self.max_elevon_angle = max_elevon_angle
+        self.max_elevon_dot = max_elevon_dot
         self.wingspan = wingspan
         self.chord = chord
         self.B = np.zeros((3, 3))
@@ -89,9 +93,9 @@ def matrix_cross(vector):
 
 
 # States x
-################## Linear #############           ############# Rotational ##########################
-#   0      1      2      3      4       5      6       7       8       9      10       11       12
-# pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, quat_w, quat_x, quat_y, quat_z, omega_x, omega_y, omega_z
+################## Linear #############           ############# Rotational ########################## ### input changes ###
+#   0      1      2      3      4       5      6       7       8       9      10       11       12        13      14       15       16
+# pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, quat_w, quat_x, quat_y, quat_z, omega_x, omega_y, omega_z, flap_l, flap_r, motor_w_l, motor_w_r
 
 # Extra States
 ################## Linear #############           ############# Rotational ##########################
@@ -138,10 +142,30 @@ def dynamics(
     omega_z = x[12]
     omega_body = np.array([omega_x, omega_y, omega_z])
 
-    flap_l = u[0]
-    flap_r = u[1]
-    motor_w_l = u[2]
-    motor_w_r = u[3]
+    # flap_l = u[0]
+    # flap_r = u[1]
+    # motor_w_l = u[2]
+    # motor_w_r = u[3]
+    # flap_l_dot = 0
+    # flap_r_dot = 0
+    # motor_w_l_dot = 0
+    # motor_w_r_dot = 0
+    flap_l = x[13]
+    flap_r = x[14]
+    motor_w_l = x[15]
+    motor_w_r = x[16]
+    flap_l_dot = np.clip(
+        u[0] - flap_l, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
+    )
+    flap_r_dot = np.clip(
+        u[1] - flap_r, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
+    )
+    motor_w_l_dot = np.clip(
+        u[2] - motor_w_l, -aircraft.max_omega_dot, aircraft.max_omega_dot
+    )
+    motor_w_r_dot = np.clip(
+        u[3] - motor_w_r, -aircraft.max_omega_dot, aircraft.max_omega_dot
+    )
     flap_l = np.clip(flap_l, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
     flap_r = np.clip(flap_r, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
     motor_w_l = np.clip(motor_w_l, -aircraft.max_omega, 0)
@@ -484,6 +508,10 @@ def dynamics(
     x_dot[10] = angular_acceleration_body[0]
     x_dot[11] = angular_acceleration_body[1]
     x_dot[12] = angular_acceleration_body[2]
+    x_dot[13] = flap_l_dot
+    x_dot[14] = flap_r_dot
+    x_dot[15] = motor_w_l_dot
+    x_dot[16] = motor_w_r_dot
 
     if get_force_data:
         force_data[0:3] = motor_thrust_l_body

@@ -132,8 +132,8 @@ class TrackingController:
         self.thrust_des = thrust_des
         self.quat_des = quat_des
         self.omega_des = omega_des
-        # self.omega_dot_des = self.control_attitude_angular_rate(quat_des, omega_des)
-        self.omega_dot_des = np.array([0, 10 * np.sin(self.time * np.pi * 2), 0])
+        self.omega_dot_des = self.control_attitude_angular_rate(quat_des, omega_des)
+        # self.omega_dot_des = np.array([0, 10 * np.sin(self.time * np.pi * 2), 0])
         self.moment_command = self.control_angular_acceleration(self.omega_dot_des)
         new_u = self.thrust_moment_transform(thrust_des, self.moment_command)
         # print("moment command", self.moment_command, end="\t")
@@ -176,10 +176,10 @@ class TrackingController:
         self.quaternion = np.quaternion(quat_w, quat_x, quat_y, quat_z)
 
         self.low_pass_inputs(x[10:13], u, acceleration)
-        self.omega_dot_body_filt = omega_dot.copy()
-        # self.omega_dot_body_filt = self.hz * (
-        #     self.omega_body_filt - self.omega_body_filt_prev
-        # )
+        # self.omega_dot_body_filt = omega_dot.copy()
+        self.omega_dot_body_filt = self.hz * (
+            self.omega_body_filt - self.omega_body_filt_prev
+        )
         self.omega_body_filt_prev = self.omega_body_filt.copy()
 
         # calculate force estimates
@@ -427,65 +427,65 @@ class TrackingController:
             acceleration
         ) + np.array([0, 0, -self.environment.gravity])
         # acceleration_lpf
-        # self.acceleration_filt = acceleration_data_minus_gravity.copy()
-        self.acceleration_filt[0], self.acceleration_x_filt_state = signal.sosfilt(
-            self.sos_lpf,
-            [acceleration_data_minus_gravity[0]],
-            zi=self.acceleration_x_filt_state,
-        )
-        self.acceleration_filt[1], self.acceleration_y_filt_state = signal.sosfilt(
-            self.sos_lpf,
-            [acceleration_data_minus_gravity[1]],
-            zi=self.acceleration_y_filt_state,
-        )
-        self.acceleration_filt[2], self.acceleration_z_filt_state = signal.sosfilt(
-            self.sos_lpf,
-            [acceleration_data_minus_gravity[2]],
-            zi=self.acceleration_z_filt_state,
-        )
+        self.acceleration_filt = acceleration_data_minus_gravity.copy()
+        # self.acceleration_filt[0], self.acceleration_x_filt_state = signal.sosfilt(
+        #     self.sos_lpf,
+        #     [acceleration_data_minus_gravity[0]],
+        #     zi=self.acceleration_x_filt_state,
+        # )
+        # self.acceleration_filt[1], self.acceleration_y_filt_state = signal.sosfilt(
+        #     self.sos_lpf,
+        #     [acceleration_data_minus_gravity[1]],
+        #     zi=self.acceleration_y_filt_state,
+        # )
+        # self.acceleration_filt[2], self.acceleration_z_filt_state = signal.sosfilt(
+        #     self.sos_lpf,
+        #     [acceleration_data_minus_gravity[2]],
+        #     zi=self.acceleration_z_filt_state,
+        # )
 
         # omega
-        self.omega_body_filt[0], self.omega_body_x_filt_state = signal.sosfilt(
-            self.sos_lpf, [omega[0]], zi=self.omega_body_x_filt_state
-        )
-        self.omega_body_filt[1], self.omega_body_y_filt_state = signal.sosfilt(
-            self.sos_lpf, [omega[1]], zi=self.omega_body_y_filt_state
-        )
-        self.omega_body_filt[2], self.omega_body_z_filt_state = signal.sosfilt(
-            self.sos_lpf, [omega[2]], zi=self.omega_body_z_filt_state
-        )
-        # self.omega_body_filt = omega.copy()
+        # self.omega_body_filt[0], self.omega_body_x_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [omega[0]], zi=self.omega_body_x_filt_state
+        # )
+        # self.omega_body_filt[1], self.omega_body_y_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [omega[1]], zi=self.omega_body_y_filt_state
+        # )
+        # self.omega_body_filt[2], self.omega_body_z_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [omega[2]], zi=self.omega_body_z_filt_state
+        # )
+        self.omega_body_filt = omega.copy()
 
         # flap deflection
 
-        to_fill, self.flap_l_lpf_filt_state = signal.sosfilt(
-            self.sos_lpf, [u[0]], zi=self.flap_l_lpf_filt_state
-        )
-        to_fill, self.flap_l_hpf_filt_state = signal.sosfilt(
-            self.sos_hpf, to_fill, zi=self.flap_l_hpf_filt_state
-        )
-        self.flap_l_filt = to_fill[0]
+        # to_fill, self.flap_l_lpf_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [u[0]], zi=self.flap_l_lpf_filt_state
+        # )
+        # to_fill, self.flap_l_hpf_filt_state = signal.sosfilt(
+        #     self.sos_hpf, to_fill, zi=self.flap_l_hpf_filt_state
+        # )
+        # self.flap_l_filt = to_fill[0]
 
-        to_fill, self.flap_r_lpf_filt_state = signal.sosfilt(
-            self.sos_lpf, [u[1]], zi=self.flap_r_lpf_filt_state
-        )
-        to_fill, self.flap_r_hpf_filt_state = signal.sosfilt(
-            self.sos_hpf, to_fill, zi=self.flap_r_hpf_filt_state
-        )
-        self.flap_r_filt = to_fill[0]
-        # self.flap_l_filt = u[0]
-        # self.flap_r_filt = u[1]
+        # to_fill, self.flap_r_lpf_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [u[1]], zi=self.flap_r_lpf_filt_state
+        # )
+        # to_fill, self.flap_r_hpf_filt_state = signal.sosfilt(
+        #     self.sos_hpf, to_fill, zi=self.flap_r_hpf_filt_state
+        # )
+        # self.flap_r_filt = to_fill[0]
+        self.flap_l_filt = u[0]
+        self.flap_r_filt = u[1]
         # motor speeds
-        to_fill, self.motor_w_l_filt_state = signal.sosfilt(
-            self.sos_lpf, [u[2]], zi=self.motor_w_l_filt_state
-        )
-        self.motor_w_l_filt = to_fill[0]
-        to_fill, self.motor_w_r_filt_state = signal.sosfilt(
-            self.sos_lpf, [u[3]], zi=self.motor_w_r_filt_state
-        )
-        self.motor_w_r_filt = to_fill[0]
-        # self.motor_w_l_filt = u[2]
-        # self.motor_w_r_filt = u[3]
+        # to_fill, self.motor_w_l_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [u[2]], zi=self.motor_w_l_filt_state
+        # )
+        # self.motor_w_l_filt = to_fill[0]
+        # to_fill, self.motor_w_r_filt_state = signal.sosfilt(
+        #     self.sos_lpf, [u[3]], zi=self.motor_w_r_filt_state
+        # )
+        # self.motor_w_r_filt = to_fill[0]
+        self.motor_w_l_filt = u[2]
+        self.motor_w_r_filt = u[3]
 
     def control_linear_acceleration(self, acceleration_des, yaw_des):
 
