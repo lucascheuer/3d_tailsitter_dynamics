@@ -110,6 +110,8 @@ def dynamics(
     environment: Environment,
     get_force_data=False,
     force_data: np.array = np.zeros(0),
+    print_debug=False,
+    est_mom=np.array([0, 0, 0]),
 ):
     # print(force_data)
 
@@ -279,6 +281,19 @@ def dynamics(
         + rotational_elevon_lift_reduction_body
     )
 
+    # print(
+    #     total_force_body,
+    #     motor_thrust_l_body
+    #     + motor_thrust_r_body
+    #     + propeller_drag_l_body
+    #     + propeller_drag_r_body,
+    #     elevon_lift_reduction_l_body
+    #     + elevon_lift_reduction_r_body
+    #     + elevon_thrust_redirection_l_body
+    #     + elevon_thrust_redirection_r_body,
+    #     lift_body,
+    #     force_gravity_body,
+    # )
     acceleration_body = (
         total_force_body / aircraft.mass - matrix_cross(omega_body) @ velocity_body
     )
@@ -407,21 +422,39 @@ def dynamics(
         + propeller_drag_moment_r_body
         + elevon_thrust_redirection_moment_l_body
         + elevon_thrust_redirection_moment_r_body
-        + elevon_lift_reduction_moment_l_body
-        + elevon_lift_reduction_moment_r_body
+        + elevon_lift_reduction_moment_l_body  #
+        + elevon_lift_reduction_moment_r_body  #
         + rotational_elevon_lift_reduction_moment_l_body
         + rotational_elevon_lift_reduction_moment_r_body
         + motor_torque_l_body
         + motor_torque_r_body
-        + lift_moment_body  # phi_mv stuf
+        + lift_moment_body  # phi_mv stuf #
         + propeller_drag_coeff_moment_l_body
         + propeller_drag_coeff_moment_r_body
-        + elevon_lift_reduction_coeff_moment_body
+        + elevon_lift_reduction_coeff_moment_body  #
         + elevon_thrust_redirection_coeff_moment_l_body
         + elevon_thrust_redirection_coeff_moment_r_body
-        + lift_moment_damping_body  # phi_m_omega stuff
+        + lift_moment_damping_body  # phi_m_omega stuff #
         + elevon_lift_reduction_moment_damping_body
     )
+    if print_debug:
+        print(
+            "ratio: ",
+            est_mom / np.array(total_moment_body),
+            "est: ",
+            est_mom,
+            "actual: ",
+            np.array(total_moment_body),
+        )
+
+    # print(
+    #     total_moment_body[1],
+    #     elevon_lift_reduction_moment_l_body[1],
+    #     elevon_lift_reduction_moment_r_body[1],
+    #     lift_moment_body[1],
+    #     elevon_lift_reduction_coeff_moment_body[1],
+    #     lift_moment_damping_body[1],
+    # )
     angular_acceleration_body = (
         aircraft.moment_of_inertia_inv @ total_moment_body
     ) - aircraft.moment_of_inertia_inv @ (
