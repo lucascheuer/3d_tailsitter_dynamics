@@ -52,12 +52,16 @@ def animate(
     states,
     controls,
     aircraft: Aircraft,
+    data_hz,
+    fps=20,
     force_data=None,
     force_scale=0.5,
     follow=False,
     trail=False,
 ):
 
+    frame_mult = int(data_hz / fps)
+    print(frame_mult)
     elevon_chord = aircraft.chord * aircraft.elevon_percentage
     wing_chord = aircraft.chord - elevon_chord
     wing_front_back = aircraft.chord * 0.5
@@ -231,23 +235,27 @@ def animate(
         # elevon_angle = np.deg2rad(15) * np.sin(np.pi * 2 / 50 * frame)
         if trail:
             line.set_data_3d(
-                states[0, : frame * 2 + 1 : 2],
-                -states[1, : frame * 2 + 1 : 2],
-                -states[2, : frame * 2 + 1 : 2],
+                states[0, : frame * frame_mult + 1 : 2],
+                -states[1, : frame * frame_mult + 1 : 2],
+                -states[2, : frame * frame_mult + 1 : 2],
             )
-            # print(states[0, : frame * 2 + 1])
+            # print(states[0, : frame * frame_mult + 1])
             # print()
-        left_elevon_rot = R.from_rotvec(controls[0, frame * 2] * np.array([0, 1, 0]))
-        right_elevon_rot = R.from_rotvec(controls[1, frame * 2] * np.array([0, 1, 0]))
+        left_elevon_rot = R.from_rotvec(
+            controls[0, frame * frame_mult] * np.array([0, 1, 0])
+        )
+        right_elevon_rot = R.from_rotvec(
+            controls[1, frame * frame_mult] * np.array([0, 1, 0])
+        )
 
         # body_rot = R.from_rotvec(-angle * np.array([0, 0, 1]))
         # body_rot = R.from_euler("xyz", [np.deg2rad(75), 0, -angle])
         body_rot = R.from_quat(
             [
-                states[6, frame * 2],
-                states[7, frame * 2],
-                states[8, frame * 2],
-                states[9, frame * 2],
+                states[6, frame * frame_mult],
+                states[7, frame * frame_mult],
+                states[8, frame * frame_mult],
+                states[9, frame * frame_mult],
             ],
             scalar_first=True,
         )
@@ -260,38 +268,40 @@ def animate(
         new_left_elevon += [wing_elevon_front, 0, 0]
         new_right_elevon += [wing_elevon_front, 0, 0]
         mtr_thr_l_data = motor_thr_l.update_base(
-            force_data[0:3, frame * 2] * force_scale
+            force_data[0:3, frame * frame_mult] * force_scale
         )
         mtr_thr_r_data = motor_thr_r.update_base(
-            force_data[3:6, frame * 2] * force_scale
+            force_data[3:6, frame * frame_mult] * force_scale
         )
         mtr_drg_l_data = motor_drag_l.update_base(
-            force_data[6:9, frame * 2] * force_scale
+            force_data[6:9, frame * frame_mult] * force_scale
         )
         mtr_drg_r_data = motor_drag_r.update_base(
-            force_data[9:12, frame * 2] * force_scale
+            force_data[9:12, frame * frame_mult] * force_scale
         )
-        lift_data = lift.update_base(force_data[12:15, frame * 2] * force_scale)
+        lift_data = lift.update_base(
+            force_data[12:15, frame * frame_mult] * force_scale
+        )
         force_gravity_data = force_gravity.update_base(
-            force_data[15:18, frame * 2] * force_scale
+            force_data[15:18, frame * frame_mult] * force_scale
         )
         elv_lift_reduc_l_data = elv_lift_reduc_l.update_base(
-            force_data[18:21, frame * 2] * force_scale
+            force_data[18:21, frame * frame_mult] * force_scale
         )
         elv_lift_reduc_r_data = elv_lift_reduc_r.update_base(
-            force_data[21:24, frame * 2] * force_scale
+            force_data[21:24, frame * frame_mult] * force_scale
         )
         rot_lift_wing_data = rot_lift_wing.update_base(
-            force_data[24:27, frame * 2] * force_scale
+            force_data[24:27, frame * frame_mult] * force_scale
         )
         elv_thr_redir_l_data = elv_thr_redir_l.update_base(
-            force_data[27:30, frame * 2] * force_scale
+            force_data[27:30, frame * frame_mult] * force_scale
         )
         elv_thr_redir_r_data = elv_thr_redir_r.update_base(
-            force_data[30:33, frame * 2] * force_scale
+            force_data[30:33, frame * frame_mult] * force_scale
         )
         rot_lift_reduc_elv_data = rot_lift_reduc_elv.update_base(
-            force_data[33:36, frame * 2] * force_scale
+            force_data[33:36, frame * frame_mult] * force_scale
         )
         # move to quarter chord
         full_body = np.concatenate(
@@ -320,7 +330,11 @@ def animate(
         full_body = normal_frame.apply(full_body)
         # move to proper location
         full_body += np.array(
-            [states[0, frame * 2], -states[1, frame * 2], -states[2, frame * 2]]
+            [
+                states[0, frame * frame_mult],
+                -states[1, frame * frame_mult],
+                -states[2, frame * frame_mult],
+            ]
         )
 
         new_wing = full_body[:4, :]
@@ -356,23 +370,37 @@ def animate(
 
         # Setting the size of the view
         if follow:
-            ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
-            ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
-            ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+            ax.set_xlim(
+                states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
+            )
+            ax.set_ylim(
+                -states[1, frame * frame_mult] - 1, -states[1, frame * frame_mult] + 1
+            )
+            ax.set_zlim(
+                -states[2, frame * frame_mult] - 1, -states[2, frame * frame_mult] + 1
+            )
         else:
             if frame == 0:
-                ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
-                ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
-                ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+                ax.set_xlim(
+                    states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
+                )
+                ax.set_ylim(
+                    -states[1, frame * frame_mult] - 1,
+                    -states[1, frame * frame_mult] + 1,
+                )
+                ax.set_zlim(
+                    -states[2, frame * frame_mult] - 1,
+                    -states[2, frame * frame_mult] + 1,
+                )
             x_min, x_max = ax.get_xlim()
             y_min, y_max = ax.get_ylim()
             z_min, z_max = ax.get_zlim()
-            x_min = min(x_min, states[0, frame * 2] - 1)
-            x_max = max(x_max, states[0, frame * 2] + 1)
-            y_min = min(y_min, -states[1, frame * 2] - 1)
-            y_max = max(y_max, -states[1, frame * 2] + 1)
-            z_min = min(z_min, -states[2, frame * 2] - 1)
-            z_max = max(z_max, -states[2, frame * 2] + 1)
+            x_min = min(x_min, states[0, frame * frame_mult] - 1)
+            x_max = max(x_max, states[0, frame * frame_mult] + 1)
+            y_min = min(y_min, -states[1, frame * frame_mult] - 1)
+            y_max = max(y_max, -states[1, frame * frame_mult] + 1)
+            z_min = min(z_min, -states[2, frame * frame_mult] - 1)
+            z_max = max(z_max, -states[2, frame * frame_mult] + 1)
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(y_min, y_max)
             ax.set_zlim(z_min, z_max)
@@ -380,7 +408,11 @@ def animate(
         # return poly
 
     ani = FuncAnimation(
-        fig, update, frames=range(int(states.shape[1] / 2)), interval=50, blit=False
+        fig,
+        update,
+        frames=range(int(states.shape[1] / frame_mult)),
+        interval=1 / fps * 1000,
+        blit=False,
     )
 
     def toggle_pause(*args, **kwargs):
@@ -507,17 +539,21 @@ def animate_simple(states, controls, aircraft: Aircraft):
     def update(frame):
         # angle = np.pi * 2 / 50 * frame
         # elevon_angle = np.deg2rad(15) * np.sin(np.pi * 2 / 50 * frame)
-        left_elevon_rot = R.from_rotvec(controls[0, frame * 2] * np.array([0, 1, 0]))
-        right_elevon_rot = R.from_rotvec(controls[1, frame * 2] * np.array([0, 1, 0]))
+        left_elevon_rot = R.from_rotvec(
+            controls[0, frame * frame_mult] * np.array([0, 1, 0])
+        )
+        right_elevon_rot = R.from_rotvec(
+            controls[1, frame * frame_mult] * np.array([0, 1, 0])
+        )
 
         # body_rot = R.from_rotvec(-angle * np.array([0, 0, 1]))
         # body_rot = R.from_euler("xyz", [np.deg2rad(75), 0, -angle])
         body_rot = R.from_quat(
             [
-                states[6, frame * 2],
-                states[7, frame * 2],
-                states[8, frame * 2],
-                states[9, frame * 2],
+                states[6, frame * frame_mult],
+                states[7, frame * frame_mult],
+                states[8, frame * frame_mult],
+                states[9, frame * frame_mult],
             ],
             scalar_first=True,
         )
@@ -537,7 +573,11 @@ def animate_simple(states, controls, aircraft: Aircraft):
         full_body = normal_frame.apply(full_body)
         # move to proper location
         full_body += np.array(
-            [states[0, frame * 2], -states[1, frame * 2], -states[2, frame * 2]]
+            [
+                states[0, frame * frame_mult],
+                -states[1, frame * frame_mult],
+                -states[2, frame * frame_mult],
+            ]
         )
 
         new_wing = full_body[:4, :]
@@ -548,22 +588,28 @@ def animate_simple(states, controls, aircraft: Aircraft):
         poly.set_verts([new_wing, new_right_elevon, new_left_elevon])
 
         # Setting the size of the view
-        # ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
-        # ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
-        # ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+        # ax.set_xlim(states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1)
+        # ax.set_ylim(-states[1, frame * frame_mult] - 1, -states[1, frame * frame_mult] + 1)
+        # ax.set_zlim(-states[2, frame * frame_mult] - 1, -states[2, frame * frame_mult] + 1)
         if frame == 0:
-            ax.set_xlim(states[0, frame * 2] - 1, states[0, frame * 2] + 1)
-            ax.set_ylim(-states[1, frame * 2] - 1, -states[1, frame * 2] + 1)
-            ax.set_zlim(-states[2, frame * 2] - 1, -states[2, frame * 2] + 1)
+            ax.set_xlim(
+                states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
+            )
+            ax.set_ylim(
+                -states[1, frame * frame_mult] - 1, -states[1, frame * frame_mult] + 1
+            )
+            ax.set_zlim(
+                -states[2, frame * frame_mult] - 1, -states[2, frame * frame_mult] + 1
+            )
         x_min, x_max = ax.get_xlim()
         y_min, y_max = ax.get_ylim()
         z_min, z_max = ax.get_zlim()
-        x_min = min(x_min, states[0, frame * 2] - 1)
-        x_max = max(x_max, states[0, frame * 2] + 1)
-        y_min = min(y_min, -states[1, frame * 2] - 1)
-        y_max = max(y_max, -states[1, frame * 2] + 1)
-        z_min = min(z_min, -states[2, frame * 2] - 1)
-        z_max = max(z_max, -states[2, frame * 2] + 1)
+        x_min = min(x_min, states[0, frame * frame_mult] - 1)
+        x_max = max(x_max, states[0, frame * frame_mult] + 1)
+        y_min = min(y_min, -states[1, frame * frame_mult] - 1)
+        y_max = max(y_max, -states[1, frame * frame_mult] + 1)
+        z_min = min(z_min, -states[2, frame * frame_mult] - 1)
+        z_max = max(z_max, -states[2, frame * frame_mult] + 1)
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
         ax.set_zlim(z_min, z_max)
