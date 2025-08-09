@@ -175,6 +175,7 @@ def main():
     states[:, 0] = state_0
     controls[:, 0] = control_0
     control_f = control_0
+    state_f = state_0
     last_percentage = 0
     print_debug = False
     for step, time_step in zip(range(1, len(t_steps)), t_steps):
@@ -200,11 +201,17 @@ def main():
 
         moment_achieved[:, step] = moment_of_inertia @ omega_dot[:, step]
         real_acceleration = np.array([accel_data[3], accel_data[4], accel_data[5]])
+        control_dot = [
+            flaps(control_f[0], state_f[13], dt),
+            flaps(control_f[1], state_f[14], dt),
+            motors(control_f[2], state_f[15], dt),
+            motors(control_f[3], state_f[16], dt),
+        ]
         solution = solve_ivp(
             dynamics,
             [time_step, time_step + dt],
             state_0,
-            args=(control_f, aircraft, environment, True, force_data[:, step]),
+            args=(control_dot, aircraft, environment, True, force_data[:, step]),
             method="RK45",
             rtol=1e-6,
             atol=1e-12,
