@@ -150,22 +150,65 @@ def dynamics(
     # flap_r_dot = 0
     # motor_w_l_dot = 0
     # motor_w_r_dot = 0
+
+    # flap_l_dot = np.sign(u[0] - flap_l) * aircraft.max_elevon_dot
+    # flap_r_dot = np.sign(u[1] - flap_r) * aircraft.max_elevon_dot
+    # motor_w_l_dot = np.sign(u[2] - motor_w_l) * aircraft.max_omega_dot
+    # motor_w_r_dot = np.sign(u[3] - motor_w_r) * aircraft.max_omega_dot
+    # if abs(flap_l) > aircraft.max_elevon_angle and np.sign(flap_l) == np.sign(
+    #     flap_l_dot
+    # ):
+    #     flap_l_dot = 0
+    # if abs(flap_r) > aircraft.max_elevon_angle and np.sign(flap_r) == np.sign(
+    #     flap_r_dot
+    # ):
+    #     flap_r_dot = 0
+    # if abs(motor_w_l) > aircraft.max_omega and np.sign(motor_w_l) == np.sign(
+    #     motor_w_l_dot
+    # ):
+    #     motor_w_l_dot = 0
+    # if abs(motor_w_r) > aircraft.max_omega and np.sign(motor_w_l) == np.sign(
+    #     motor_w_r_dot
+    # ):
+    #     motor_w_r_dot = 0
+    # flap_l_dot = np.clip(
+    #     u[0] - flap_l, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
+    # )
+    # flap_r_dot = np.clip(
+    #     u[1] - flap_r, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
+    # )
+    # motor_w_l_dot = np.clip(
+    #     u[2] - motor_w_l, -aircraft.max_omega_dot, aircraft.max_omega_dot
+    # )
+    # motor_w_r_dot = np.clip(
+    #     u[3] - motor_w_r, -aircraft.max_omega_dot, aircraft.max_omega_dot
+    # )
     flap_l = x[13]
     flap_r = x[14]
     motor_w_l = x[15]
     motor_w_r = x[16]
-    flap_l_dot = np.clip(
-        u[0] - flap_l, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
-    )
-    flap_r_dot = np.clip(
-        u[1] - flap_r, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
-    )
-    motor_w_l_dot = np.clip(
-        u[2] - motor_w_l, -aircraft.max_omega_dot, aircraft.max_omega_dot
-    )
-    motor_w_r_dot = np.clip(
-        u[3] - motor_w_r, -aircraft.max_omega_dot, aircraft.max_omega_dot
-    )
+    flap_l_dot = u[0]
+    flap_r_dot = u[1]
+    motor_w_l_dot = u[2]
+    motor_w_r_dot = u[3]
+    if flap_l >= aircraft.max_elevon_angle and flap_l_dot > 0:
+        flap_l_dot = 0
+    if flap_r >= aircraft.max_elevon_angle and flap_r_dot > 0:
+        flap_r_dot = 0
+    if flap_l <= -aircraft.max_elevon_angle and flap_l_dot < 0:
+        flap_l_dot = 0
+    if flap_r <= -aircraft.max_elevon_angle and flap_r_dot < 0:
+        flap_r_dot = 0
+
+    if motor_w_l >= 0 and motor_w_l_dot > 0:
+        motor_w_l_dot = 0
+    if motor_w_r >= aircraft.max_omega and motor_w_r_dot > 0:
+        motor_w_r_dot = 0
+    if motor_w_l <= -aircraft.max_omega and motor_w_l_dot < 0:
+        motor_w_l_dot = 0
+    if motor_w_r <= 0 and motor_w_r_dot < 0:
+        motor_w_r_dot = 0
+
     flap_l = np.clip(flap_l, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
     flap_r = np.clip(flap_r, -aircraft.max_elevon_angle, aircraft.max_elevon_angle)
     motor_w_l = np.clip(motor_w_l, -aircraft.max_omega, 0)
@@ -527,3 +570,23 @@ def dynamics(
         force_data[30:33] = elevon_thrust_redirection_r_body
         force_data[33:36] = rotational_elevon_lift_reduction_body
     return x_dot
+
+
+def flaps(u, flap_actual, dt):
+    max_vel = 40000
+    kP = 10
+    flap_error = u - flap_actual
+    # flap_l_dot = flap_l_erro
+    flap_dot = np.clip(flap_error * kP, -max_vel * dt, max_vel * dt)
+
+    return flap_dot
+
+
+def motors(u, motor_actual, dt):
+    max_acc = 16000000
+    kP = 10
+    motor_error = u - motor_actual
+    # flap_l_dot = flap_l_erro
+    motor_dot = np.clip(motor_error * kP, -max_acc * dt, max_acc * dt)
+
+    return motor_dot
