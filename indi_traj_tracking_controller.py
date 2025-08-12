@@ -61,12 +61,18 @@ def matrix_cross(vector):
 class TrackingController:
     def __init__(
         self,
+        pos_gain,
+        vel_gain,
+        acc_gain,
         quat_gain,
         omega_gain,
         hz,
         aircraft: SimpleAircraft,
         environment: Environment,
     ):
+        self.pos_gain = pos_gain
+        self.vel_gain = vel_gain
+        self.acc_gain = acc_gain
         self.quat_gain = quat_gain
         self.omega_gain = omega_gain
         self.time = 0
@@ -126,29 +132,66 @@ class TrackingController:
         self.flap_r_hpf_filt_state = signal.sosfilt_zi(self.sos_hpf) * 0
         self.moment_command = np.array([0, 0.0, 0])
 
-    def update(self, thrust_des, quat_des, omega_des, x, u, acceleration, omega_dot):
-        self.update_estimates(x, u, acceleration, omega_dot)
+    def update(
+        self,
+        pos_des,
+        vel_des,
+        acc_des,
+        yaw_des,
+        omega_des,
+        x,
+        u,
+        acceleration,
+        omega_dot,
+    ):
+        self.update_estimates(x, x[13:17], acceleration, omega_dot)
+
         self.time += self.dt
-        self.thrust_des = thrust_des
-        self.quat_des = quat_des
         self.omega_des = omega_des
-        self.omega_dot_des = self.control_attitude_angular_rate(quat_des, omega_des)
-        # self.omega_dot_des = np.array([0, 10 * np.sin(self.time * np.pi * 2), 0])
+        self.pos_des = pos_des.copy()
+        self.vel_des = vel_des.copy()
+        self.acceleration_des = acc_des.copy()
+        self.acceleration_command = self.control_position_velocity(
+            self.pos_des, self.vel_des, self.acceleration_des
+        )
+        # self.acceleration_command = [0.1, 0, -0.1]
+        self.force_command = self.control_linear_acceleration(self.acceleration_command)
+        # self.force_command = -self.force_command
+        self.quat_des, self.thrust_des = self.force_yaw_transform(
+            self.force_command, yaw_des
+        )
+        # print(self.thrust_des)
+        # self.thrust_des = 1.01 * self.aircraft.mass * 9.81
+        # self.quat_des = R.from_euler("ZXY", [0, 0, np.radians(90)]).as_quat(
+        #     scalar_first=True
+        # )
+        # self.omega_des = [0, 0, 0]
+        self.omega_dot_des = self.control_attitude_angular_rate(
+            self.quat_des, self.omega_des
+        )
         self.moment_command = self.control_angular_acceleration(self.omega_dot_des)
-        new_u = self.thrust_moment_transform(thrust_des, self.moment_command)
+        new_u = self.thrust_moment_transform(self.thrust_des, self.moment_command)
+        # print(np.degrees(new_u[0]), np.degrees(new_u[1]))
         # print("moment command", self.moment_command, end="\t")
         return new_u
 
     def get_desired(self):
         return np.concatenate(
-            ([self.thrust_des], self.quat_des, self.omega_des, self.omega_dot_des)
+            (
+                self.quat_des,  # 0, 1, 2, 3
+                self.omega_des,  # 4, 5, 6
+                self.omega_dot_des,  # 7, 8, 9
+                self.pos_des,  # 10, 11, 12
+                self.vel_des,  # 13, 14, 15
+                self.acceleration_des,
+            )
         )
 
     def get_estimated_moment(self):
         return self.moment_body_filt
 
-    def get_commanded_moment(self):
-        return self.moment_command
+    def get_commanded_force_moment(self):
+        return self.force_command, self.moment_command
 
     def get_filtered_data(self):
         return np.concatenate(
@@ -173,9 +216,16 @@ class TrackingController:
         self.body_to_inertial_rotation = R.from_quat(
             (quat_w, quat_x, quat_y, quat_z), scalar_first=True
         )
-        self.quaternion = np.quaternion(quat_w, quat_x, quat_y, quat_z)
+        self.inertial_to_body_rotation = self.body_to_inertial_rotation.inv()
+        self.velocity_inertial = self.body_to_inertial_rotation.apply(
+            self.velocity_body
+        )
 
+        self.quaternion = np.quaternion(quat_w, quat_x, quat_y, quat_z)
+        self.position_inertial = x[0:3]
+        # self.low_pass_inputs(x[10:13], x[13:17], acceleration)
         self.low_pass_inputs(x[10:13], u, acceleration)
+
         # self.omega_dot_body_filt = omega_dot.copy()
         self.omega_dot_body_filt = self.hz * (
             self.omega_body_filt - self.omega_body_filt_prev
@@ -207,8 +257,8 @@ class TrackingController:
             * self.velocity_magnitude
             * self.velocity_body[0]
         )
-        force_flaps_body_lpf_hpf = np.array(
-            [0, 0, force_flaps_l_body_lpf_hpf + force_flaps_r_body_lpf_hpf]
+        self.force_flaps_body_lpf_hpf[2] = (
+            force_flaps_l_body_lpf_hpf + force_flaps_r_body_lpf_hpf
         )
 
         # wing force
@@ -224,7 +274,9 @@ class TrackingController:
         )
 
         force_body_filt = (
-            force_thrust_body_filt + force_flaps_body_lpf_hpf + force_wing_body_filt
+            force_thrust_body_filt
+            + self.force_flaps_body_lpf_hpf
+            + force_wing_body_filt
         )
 
         # caclulate moments
@@ -267,6 +319,11 @@ class TrackingController:
         )
         # print(self.moment_body_filt[1], end="\t")
         self.force_inertial_lpf = self.body_to_inertial_rotation.apply(force_body_filt)
+        self.acceleration_tilda_lpf = (
+            self.acceleration_filt
+            - self.body_to_inertial_rotation.apply(self.force_flaps_body_lpf_hpf)
+            / self.aircraft.mass
+        )
 
     def dynamics(self, x, u):
         quat_w = x[6]
@@ -425,7 +482,7 @@ class TrackingController:
         # second order butterworth high pass filter at 1hz
         acceleration_data_minus_gravity = self.body_to_inertial_rotation.apply(
             acceleration
-        ) + np.array([0, 0, -self.environment.gravity])
+        )  # + np.array([0, 0, -self.environment.gravity])
         # acceleration_lpf
         self.acceleration_filt = acceleration_data_minus_gravity.copy()
         # self.acceleration_filt[0], self.acceleration_x_filt_state = signal.sosfilt(
@@ -487,35 +544,126 @@ class TrackingController:
         self.motor_w_l_filt = u[2]
         self.motor_w_r_filt = u[3]
 
-    def control_linear_acceleration(self, acceleration_des, yaw_des):
-
-        acceleration_tilda_lpf = (
-            self.acceleration_filt
-            - self.body_to_inertial_rotation.apply(self.force_flaps_body_lpf_hpf)
-            / self.aircraft.mass
+    def control_position_velocity(self, pos_des, vel_des, acc_des):
+        acceleration_command = (
+            self.body_to_inertial_rotation.apply(
+                self.pos_gain
+                @ self.inertial_to_body_rotation.apply(pos_des - self.position_inertial)
+                + self.vel_gain
+                @ self.inertial_to_body_rotation.apply(vel_des - self.velocity_inertial)
+                + self.acc_gain
+                @ self.inertial_to_body_rotation.apply(
+                    acc_des - self.acceleration_tilda_lpf
+                )
+            )
+            + acc_des
         )
+        return acceleration_command
+
+    def control_linear_acceleration(self, acceleration_des):
+
         force_inertial_commanded = (
-            acceleration_des - acceleration_tilda_lpf
+            acceleration_des - self.acceleration_tilda_lpf
         ) * self.aircraft.mass + self.force_inertial_lpf
 
-        # inertial_to_phi_rotation =
-        quaternion_commanded = 0
-        thrust_commanded = 0
+        return force_inertial_commanded
 
-        return 0
+    def force_yaw_transform(self, force_des, yaw_des):
+        # return quat and thrust
+        # get phi
+        # force_des = -force_des
+        inertial_to_yaw_rotation = R.from_euler("ZXY", [yaw_des, 0, 0])
+        phi = -np.atan2(inertial_to_yaw_rotation.apply(force_des)[1], force_des[2])
+        phi = 0
+        # yaw_des = 0
+        inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0])
+        b_y = self.body_to_inertial_rotation.apply([0, 1, 0])
+        phi_y = inertial_to_phi_rotation.inv().apply([0, 1, 0])
+        # print(b_y, new_y)
+        k = 0
+        dot = np.dot(b_y, phi_y)
+        # print(self.time, "\t", phi, "\t", b_y, "\t", phi_y, "\t", dot)
+        if dot <= 0:
+            phi += np.pi
+            k = 1
+            inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0])
+        else:
+            k = 0
+        self.inertial_to_phi_rotation = inertial_to_phi_rotation
+
+        # print(np.degrees(phi), "\t", k, end="\t")
+        force_phi = inertial_to_phi_rotation.apply(force_des)
+        vel_phi = inertial_to_phi_rotation.apply(self.velocity_inertial)
+        delta = (
+            self.flap_l_filt + self.flap_r_filt
+        )  # decide on which to use here. Either real or commanded
+        eta = (-self.aircraft.delta_C_l_t * delta / 2) / (1 - self.aircraft.C_d_t)
+        theta_top = (
+            eta
+            * (
+                force_phi[0]
+                + self.aircraft.C_d_v * self.velocity_magnitude * vel_phi[0]
+            )
+            - self.aircraft.delta_C_l_v * delta * self.velocity_magnitude * vel_phi[0]
+            - self.aircraft.C_l_v * self.velocity_magnitude * vel_phi[2]
+            - force_phi[2]
+        )
+        theta_bottom = (
+            eta
+            * (
+                force_phi[2]
+                + self.aircraft.C_d_v * self.velocity_magnitude * vel_phi[2]
+            )
+            - self.aircraft.delta_C_l_v * delta * self.velocity_magnitude * vel_phi[2]
+            + self.aircraft.C_l_v * self.velocity_magnitude * vel_phi[0]
+            + force_phi[0]
+        )
+        theta = np.atan2(theta_top, theta_bottom) + (k) * np.pi
+        # print(np.degrees(theta), end="\t")
+        # print(np.degrees(yaw_des))
+        # if self.time > 1.744:
+        #     print(yaw_des, phi, theta)
+        quat = R.from_euler("ZXY", (yaw_des, phi, theta)).as_quat(scalar_first=True)
+
+        c_theta = np.cos(theta)
+        s_theta = np.sin(theta)
+        thrust = (
+            1
+            / (1 - self.aircraft.C_d_t)
+            * (
+                c_theta * force_phi[0]
+                - s_theta * force_phi[2]
+                + self.aircraft.C_d_v
+                * self.velocity_magnitude
+                * (c_theta * vel_phi[0] - s_theta * vel_phi[2])
+            )
+        )
+        return quat, thrust
 
     def control_attitude_angular_rate(self, quat_des, omega_des):
         quat_des_obj = np.quaternion(quat_des[0], quat_des[1], quat_des[2], quat_des[3])
         error_quat = self.quaternion.conj() * quat_des_obj
 
-        angle_error_vector = (
-            2
-            * np.arccos(error_quat.w)
-            / np.sqrt(1 - error_quat.w**2)
-            * np.array([error_quat.x, error_quat.y, error_quat.z])
-        )
-        if np.any(np.isnan(angle_error_vector)):
+        bottom = np.sqrt(1 - error_quat.w**2)
+        if self.time > 1.744:
+            print(end="")
+        if bottom == 0:
             angle_error_vector = np.zeros(3)
+            print("uh oh")
+        else:
+            angle_error_vector = (
+                2
+                * np.arccos(error_quat.w)
+                / bottom
+                * np.array([error_quat.x, error_quat.y, error_quat.z])
+            )
+        # angle_error_vector = np.arctan2(
+        #     np.sin(angle_error_vector), np.cos(angle_error_vector)
+        # )
+        # print(angle_error_vector)
+        self.angle_error_vec = angle_error_vector
+        # if np.any(np.isnan(angle_error_vector)) or np.any(np.isinf(angle_error_vector)):
+        #     angle_error_vector = np.zeros(3)
         omega_dot_commanded = self.quat_gain @ angle_error_vector + self.omega_gain @ (
             omega_des - self.omega_body_filt
         )

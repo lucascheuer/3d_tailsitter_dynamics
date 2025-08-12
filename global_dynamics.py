@@ -142,47 +142,6 @@ def dynamics(
     omega_z = x[12]
     omega_body = np.array([omega_x, omega_y, omega_z])
 
-    # flap_l = u[0]
-    # flap_r = u[1]
-    # motor_w_l = u[2]
-    # motor_w_r = u[3]
-    # flap_l_dot = 0
-    # flap_r_dot = 0
-    # motor_w_l_dot = 0
-    # motor_w_r_dot = 0
-
-    # flap_l_dot = np.sign(u[0] - flap_l) * aircraft.max_elevon_dot
-    # flap_r_dot = np.sign(u[1] - flap_r) * aircraft.max_elevon_dot
-    # motor_w_l_dot = np.sign(u[2] - motor_w_l) * aircraft.max_omega_dot
-    # motor_w_r_dot = np.sign(u[3] - motor_w_r) * aircraft.max_omega_dot
-    # if abs(flap_l) > aircraft.max_elevon_angle and np.sign(flap_l) == np.sign(
-    #     flap_l_dot
-    # ):
-    #     flap_l_dot = 0
-    # if abs(flap_r) > aircraft.max_elevon_angle and np.sign(flap_r) == np.sign(
-    #     flap_r_dot
-    # ):
-    #     flap_r_dot = 0
-    # if abs(motor_w_l) > aircraft.max_omega and np.sign(motor_w_l) == np.sign(
-    #     motor_w_l_dot
-    # ):
-    #     motor_w_l_dot = 0
-    # if abs(motor_w_r) > aircraft.max_omega and np.sign(motor_w_l) == np.sign(
-    #     motor_w_r_dot
-    # ):
-    #     motor_w_r_dot = 0
-    # flap_l_dot = np.clip(
-    #     u[0] - flap_l, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
-    # )
-    # flap_r_dot = np.clip(
-    #     u[1] - flap_r, -aircraft.max_elevon_dot, aircraft.max_elevon_dot
-    # )
-    # motor_w_l_dot = np.clip(
-    #     u[2] - motor_w_l, -aircraft.max_omega_dot, aircraft.max_omega_dot
-    # )
-    # motor_w_r_dot = np.clip(
-    #     u[3] - motor_w_r, -aircraft.max_omega_dot, aircraft.max_omega_dot
-    # )
     flap_l = x[13]
     flap_r = x[14]
     motor_w_l = x[15]
@@ -574,7 +533,7 @@ def dynamics(
 
 def flaps(u, flap_actual, dt):
     max_vel = 40000
-    kP = 10
+    kP = 20
     flap_error = u - flap_actual
     # flap_l_dot = flap_l_erro
     flap_dot = np.clip(flap_error * kP, -max_vel * dt, max_vel * dt)
@@ -584,7 +543,7 @@ def flaps(u, flap_actual, dt):
 
 def motors(u, motor_actual, dt):
     max_acc = 16000000
-    kP = 10
+    kP = 20
     motor_error = u - motor_actual
     # flap_l_dot = flap_l_erro
     motor_dot = np.clip(motor_error * kP, -max_acc * dt, max_acc * dt)
