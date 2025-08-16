@@ -4,6 +4,7 @@ import mpl_toolkits.mplot3d.art3d as art3d
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from matplotlib.patches import Circle
 from matplotlib.animation import FuncAnimation
+from player import Player
 
 # from scipy.spatial.transform import RigidTransform as Tf
 from scipy.spatial.transform import Rotation as R
@@ -32,11 +33,13 @@ class ForceLine:
         )
         ax.add_line(self.line)
 
+    # update the line pre-rotation and return it
     def update_base(self, force_vector: np.array):
         self.force_vector = force_vector * self.force_scale
         self.base_line[1, :] = self.force_vector + self.base
         return self.base_line
 
+    # update the line object
     def update_line(self, line_data):
         self.line.set_data_3d(
             line_data[:, 0],
@@ -45,7 +48,7 @@ class ForceLine:
         )
 
 
-paused = False
+# paused = False
 
 
 def animate(
@@ -58,6 +61,12 @@ def animate(
     force_scale=0.5,
     follow=False,
     trail=False,
+    des_path_data=None,
+    des_path=True,
+    phi_data=None,
+    draw_phi_data=False,
+    save_anim=False,
+    file_name="tmp.mp4",
 ):
 
     frame_mult = int(data_hz / fps)
@@ -143,6 +152,16 @@ def animate(
     ax.add_collection3d(poly)
     if trail:
         (line,) = ax.plot([0], [0], color="k")
+
+    if des_path:
+        (des_path_line,) = ax.plot([0], [0], color="b")
+        des_path_line.set_data_3d(
+            des_path_data[0, :],
+            -des_path_data[1, :],
+            -des_path_data[2, :],
+        )
+        (des_path_trail,) = ax.plot([0], [0], color="g")
+        (des_point,) = ax.plot([], [], [], color="red", marker="o")
     # force arrows
     #     0:3         3:6            6:9         9:12       12:15     15:18           18:21              21:24            24:27           27:30           30:33           33:36
     # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc_l, elv_lift_reduc_r, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
@@ -207,6 +226,10 @@ def animate(
         ax,
         force_scale,
     )
+    if draw_phi_data:
+        body_y = ForceLine([0, 0, 0], np.array([0, 1, 0]), ax, 1, "red")
+        yaw_phi_y = ForceLine([0, 0, 0], np.array([0, 1, 0]), ax, 1, "green")
+
     x_min = states[0, 0] - 1
     x_max = states[0, 0] + 1
     y_min = states[1, 0] - 1
@@ -241,6 +264,17 @@ def animate(
             )
             # print(states[0, : frame * frame_mult + 1])
             # print()
+        if des_path:
+            des_path_trail.set_data_3d(
+                des_path_data[0, : frame * frame_mult + 1 : 2],
+                -des_path_data[1, : frame * frame_mult + 1 : 2],
+                -des_path_data[2, : frame * frame_mult + 1 : 2],
+            )
+            des_point.set_data(
+                [des_path_data[0, frame * frame_mult]],
+                [-des_path_data[1, frame * frame_mult]],
+            )
+            des_point.set_3d_properties([-des_path_data[2, frame * frame_mult]])
         left_elevon_rot = R.from_rotvec(
             controls[0, frame * frame_mult] * np.array([0, 1, 0])
         )
@@ -303,27 +337,51 @@ def animate(
         rot_lift_reduc_elv_data = rot_lift_reduc_elv.update_base(
             force_data[33:36, frame * frame_mult] * force_scale
         )
-        # move to quarter chord
-        full_body = np.concatenate(
-            (
-                wing,
-                new_right_elevon,
-                new_left_elevon,
-                mtr_thr_l_data,
-                mtr_thr_r_data,
-                mtr_drg_l_data,
-                mtr_drg_r_data,
-                lift_data,
-                force_gravity_data,
-                elv_lift_reduc_l_data,
-                elv_lift_reduc_r_data,
-                rot_lift_wing_data,
-                elv_thr_redir_l_data,
-                elv_thr_redir_r_data,
-                rot_lift_reduc_elv_data,
-            ),
-            axis=0,
-        ) + np.array([-aircraft.chord * 0.25, 0, 0])
+        if draw_phi_data:
+            body_y_data = body_y.update_base(np.array([0, 5, 0]))
+            # move to quarter chord
+            full_body = np.concatenate(
+                (
+                    wing,
+                    new_right_elevon,
+                    new_left_elevon,
+                    mtr_thr_l_data,
+                    mtr_thr_r_data,
+                    mtr_drg_l_data,
+                    mtr_drg_r_data,
+                    lift_data,
+                    force_gravity_data,
+                    elv_lift_reduc_l_data,
+                    elv_lift_reduc_r_data,
+                    rot_lift_wing_data,
+                    elv_thr_redir_l_data,
+                    elv_thr_redir_r_data,
+                    rot_lift_reduc_elv_data,
+                    body_y_data,
+                ),
+                axis=0,
+            ) + np.array([-aircraft.chord * 0.25, 0, 0])
+        else:
+            full_body = np.concatenate(
+                (
+                    wing,
+                    new_right_elevon,
+                    new_left_elevon,
+                    mtr_thr_l_data,
+                    mtr_thr_r_data,
+                    mtr_drg_l_data,
+                    mtr_drg_r_data,
+                    lift_data,
+                    force_gravity_data,
+                    elv_lift_reduc_l_data,
+                    elv_lift_reduc_r_data,
+                    rot_lift_wing_data,
+                    elv_thr_redir_l_data,
+                    elv_thr_redir_r_data,
+                    rot_lift_reduc_elv_data,
+                ),
+                axis=0,
+            ) + np.array([-aircraft.chord * 0.25, 0, 0])
 
         # rotate to correct body rot
         full_body = body_rot.apply(full_body)
@@ -353,7 +411,8 @@ def animate(
         elv_thr_redir_l_data = full_body[30:32, :]
         elv_thr_redir_r_data = full_body[32:34, :]
         rot_lift_reduc_elv_data = full_body[34:36, :]
-
+        if draw_phi_data:
+            body_y_data = full_body[36:39, :]
         poly.set_verts([new_wing, new_right_elevon, new_left_elevon])
         motor_thr_l.update_line(mtr_thr_l_data)
         motor_thr_r.update_line(mtr_thr_r_data)
@@ -367,7 +426,26 @@ def animate(
         elv_thr_redir_l.update_line(elv_thr_redir_l_data)
         elv_thr_redir_r.update_line(elv_thr_redir_r_data)
         rot_lift_reduc_elv.update_line(rot_lift_reduc_elv_data)
+        if draw_phi_data:
+            body_y.update_line(body_y_data)
 
+            phi_rot = phi_data[frame * frame_mult]
+
+            yaw_phi_y_data = np.copy(yaw_phi_y.update_base(np.array([0, 5, 0])))
+            yaw_phi_y_data += np.array([-aircraft.chord * 0.25, 0, 0])
+
+            # rotate to correct body rot
+            yaw_phi_y_data = phi_rot.apply(yaw_phi_y_data)
+            yaw_phi_y_data = normal_frame.apply(yaw_phi_y_data)
+            # move to proper location
+            yaw_phi_y_data += np.array(
+                [
+                    states[0, frame * frame_mult],
+                    -states[1, frame * frame_mult],
+                    -states[2, frame * frame_mult],
+                ]
+            )
+            yaw_phi_y.update_line(yaw_phi_y_data)
         # Setting the size of the view
         if follow:
             ax.set_xlim(
@@ -405,26 +483,33 @@ def animate(
             ax.set_ylim(y_min, y_max)
             ax.set_zlim(z_min, z_max)
         ax.set_aspect("equal")
+        # phi_y = phi_rot.inv().apply([0, 1, 0])
+        # b_y = body_rot.apply([0, 1, 0])
+        # dot = np.dot(b_y, phi_y)
+        # print(
+        #     frame, phi[frame * frame_mult], theta[frame * frame_mult], phi_y, b_y, dot
+        # )
         # return poly
 
-    ani = FuncAnimation(
+    last_frame = int(states.shape[1] / frame_mult) - 1
+    ani = Player(
         fig,
         update,
-        frames=range(int(states.shape[1] / frame_mult)),
+        frames=range(last_frame),
         interval=1 / fps * 1000,
         blit=False,
+        maxi=last_frame,
+        save_count=last_frame,
     )
 
-    def toggle_pause(*args, **kwargs):
-        global paused
-        if paused:
-            ani.resume()
-        else:
-            ani.pause()
-        paused = not paused
-
-    fig.canvas.mpl_connect("button_release_event", toggle_pause)
     plt.show()
+    if save_anim:
+        ani.save(
+            filename=file_name,
+            writer="ffmpeg",
+            fps=fps,
+            progress_callback=lambda i, n: print(f"Saving frame {i}/{n}"),
+        )
 
 
 def animate_simple(states, controls, aircraft: Aircraft):

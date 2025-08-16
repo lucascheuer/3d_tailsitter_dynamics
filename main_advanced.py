@@ -9,8 +9,9 @@ import copy
 
 
 def main():
-    follow = True
+    follow = False
     trail = True
+    des_trail = True
     hz = 1000.0
     rho = 1.225
     gravity = 9.81
@@ -325,6 +326,12 @@ def main():
         force_data=force_data,
         follow=follow,
         trail=trail,
+        des_path=des_trail,
+        des_path_data=positions_des,
+        phi_data=phi_data,
+        draw_phi_data=False,
+        save_anim=False,
+        file_name="slow_loop.mp4",
     )
 
     plt.show()
