@@ -571,24 +571,17 @@ class TrackingController:
     def force_yaw_transform(self, force_des, yaw_des):
         # return quat and thrust
         # get phi
-        # force_des = -force_des
         inertial_to_yaw_rotation = R.from_euler("ZXY", [yaw_des, 0, 0])
         phi = -np.atan2(inertial_to_yaw_rotation.apply(force_des)[1], force_des[2])
-        phi = 0
-        # yaw_des = 0
         inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0])
         b_y = self.body_to_inertial_rotation.apply([0, 1, 0])
         phi_y = inertial_to_phi_rotation.inv().apply([0, 1, 0])
-        # print(b_y, new_y)
-        k = 0
         dot = np.dot(b_y, phi_y)
-        # print(self.time, "\t", phi, "\t", b_y, "\t", phi_y, "\t", dot)
         if dot <= 0:
             phi += np.pi
-            k = 1
             inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0])
-        else:
-            k = 0
+            if phi > np.pi:
+                phi = np.pi * 2 - phi
         self.inertial_to_phi_rotation = inertial_to_phi_rotation
 
         # print(np.degrees(phi), "\t", k, end="\t")
@@ -618,12 +611,11 @@ class TrackingController:
             + self.aircraft.C_l_v * self.velocity_magnitude * vel_phi[0]
             + force_phi[0]
         )
-        theta = np.atan2(theta_top, theta_bottom) + (k) * np.pi
+        theta = np.atan2(theta_top, theta_bottom)
         # print(np.degrees(theta), end="\t")
         # print(np.degrees(yaw_des))
         # if self.time > 1.744:
         #     print(yaw_des, phi, theta)
-        quat = R.from_euler("ZXY", (yaw_des, phi, theta)).as_quat(scalar_first=True)
 
         c_theta = np.cos(theta)
         s_theta = np.sin(theta)
@@ -638,6 +630,25 @@ class TrackingController:
                 * (c_theta * vel_phi[0] - s_theta * vel_phi[2])
             )
         )
+        if thrust < 0:
+            theta += np.pi
+
+            c_theta = np.cos(theta)
+            s_theta = np.sin(theta)
+            thrust = (
+                1
+                / (1 - self.aircraft.C_d_t)
+                * (
+                    c_theta * force_phi[0]
+                    - s_theta * force_phi[2]
+                    + self.aircraft.C_d_v
+                    * self.velocity_magnitude
+                    * (c_theta * vel_phi[0] - s_theta * vel_phi[2])
+                )
+            )
+
+        quat = R.from_euler("ZXY", (yaw_des, phi, theta)).as_quat(scalar_first=True)
+
         return quat, thrust
 
     def control_attitude_angular_rate(self, quat_des, omega_des):
