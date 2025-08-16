@@ -101,15 +101,15 @@ def main():
 
     pos_gain = np.zeros((3, 3))
     pos_gain[0, 0] = 30
-    pos_gain[1, 1] = 0
+    pos_gain[1, 1] = 1
     pos_gain[2, 2] = 15
     vel_gain = np.zeros((3, 3))
     vel_gain[0, 0] = 25
-    vel_gain[1, 1] = 1
+    vel_gain[1, 1] = 0
     vel_gain[2, 2] = 12
     acc_gain = np.zeros((3, 3))
-    acc_gain[0, 0] = 1
-    acc_gain[1, 1] = 1
+    acc_gain[0, 0] = 2
+    acc_gain[1, 1] = 0
     acc_gain[2, 2] = 1
     quat_gain = np.zeros((3, 3))
     quat_gain[0, 0] = 75  # roll
@@ -134,9 +134,10 @@ def main():
         "ZXY", [np.deg2rad(0), np.deg2rad(0), np.deg2rad(90)]
     )
     quat_0 = orientation_naught.as_quat(scalar_first=True)
-    traj_base_amp = 2.5
+    traj_base_amp = 2
     traj_base_freq = 0.125
-    v_body_0 = np.array([0, 0, traj_base_amp * np.pi * 2 * traj_base_freq])
+    base_vel = traj_base_amp * np.pi * 2 * traj_base_freq
+    v_body_0 = orientation_naught.inv().apply(np.array([0, 0, -base_vel]))
     # States x
     ################## Linear #############           ############# Rotational ##########################
     #   0      1      2      3      4       5      6       7       8       9      10       11       12
@@ -148,7 +149,7 @@ def main():
     control_0 = np.array([np.deg2rad(-0), np.deg2rad(-0), -293, 293])
     state_0 = np.array(
         [
-            0,
+            traj_base_amp,
             0,
             0,
             v_body_0[0],
@@ -171,7 +172,7 @@ def main():
     # initial_state = dynamics(0, state_0, control_0, aircraft, environment, [1])
     # state_0[13:46] = initial_state[13:46]
 
-    t_start = 0
+    t_start = 2
     t_end = 10
     dt = 1 / hz
     t_step_count = int((t_end - t_start) * hz)
@@ -278,17 +279,37 @@ def main():
             * np.sin(np.pi * 2.0 * traj_base_freq * time_step)
         )
 
+        pos_y = traj_base_amp * np.cos(np.pi * 2.0 * traj_base_freq * time_step)
+        vel_y = (
+            -traj_base_amp
+            * np.pi
+            * 2.0
+            * traj_base_freq
+            * np.sin(np.pi * 2.0 * traj_base_freq * time_step)
+        )
+        acc_y = (
+            -traj_base_amp
+            * np.pi
+            * np.pi
+            * 2.0
+            * 2.0
+            * traj_base_freq
+            * traj_base_freq
+            * np.cos(np.pi * 2.0 * traj_base_freq * time_step)
+        )
+        yaw = 0
         control_f = angular_acceleration_controller.update(
-            [pos_x, 0, 0],
-            [vel_x, 0, 0],
-            [acc_x, 0, 0],
-            0,
+            [pos_x, 0, pos_y],
+            [vel_x, 0, vel_y],
+            [acc_x, 0, acc_y],
+            yaw,  # 2.5 * np.pi * np.sin(time_step * np.pi * 2.0 * traj_base_freq),
             [0, 0, 0],
             state_f,
             control_f,
             real_acceleration,
             omega_dot[:, step],
         )
+        controls_des[:, step] = control_f
         phi_data.append(
             copy.deepcopy(angular_acceleration_controller.inertial_to_phi_rotation)
         )
@@ -304,7 +325,7 @@ def main():
         ).as_euler("ZXY")
         omega_des[:, step] = controller_desired[4:7]
         omega_dot_des[:, step] = controller_desired[7:10]
-        accelerations_des[:, step] = controller_desired[10:13]
+        accelerations_des[:, step] = controller_desired[16:19]
         # print(omega_dot_des[:, step])
         force_commanded[:, step], moment_commanded[:, step] = (
             angular_acceleration_controller.get_commanded_force_moment()
@@ -501,12 +522,12 @@ def main():
     ax.plot(t_steps, np.degrees(controls_des[1, :]))
     ax = axs[2]
     ax.set_title("motor l")
-    ax.plot(t_steps, np.degrees(states[15, :]))
-    ax.plot(t_steps, np.degrees(controls_des[2, :]))
+    ax.plot(t_steps, states[15, :])
+    ax.plot(t_steps, controls_des[2, :])
     ax = axs[3]
     ax.set_title("motor r")
-    ax.plot(t_steps, np.degrees(states[16, :]))
-    ax.plot(t_steps, np.degrees(controls_des[3, :]))
+    ax.plot(t_steps, states[16, :])
+    ax.plot(t_steps, controls_des[3, :])
     plt.show()
 
 
