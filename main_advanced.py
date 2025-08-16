@@ -9,7 +9,7 @@ import copy
 
 
 def main():
-    follow = False
+    follow = 2
     trail = True
     des_trail = True
     hz = 1000.0

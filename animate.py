@@ -59,7 +59,7 @@ def animate(
     fps=20,
     force_data=None,
     force_scale=0.5,
-    follow=False,
+    follow=0,
     trail=False,
     des_path_data=None,
     des_path=True,
@@ -245,6 +245,17 @@ def animate(
     ax.set_aspect("equalxy")
     # ax.set_ylim(-1, 1)
     # ax.set_zlim(-1, 1)
+
+    if follow == 2 and des_path:
+        x_min = np.min(des_path_data[0, :]) - 1
+        x_max = np.max(des_path_data[0, :]) + 1
+        y_min = np.min(-des_path_data[1, :]) - 1
+        y_max = np.max(-des_path_data[1, :]) + 1
+        z_min = np.min(-des_path_data[2, :]) - 1
+        z_max = np.max(-des_path_data[2, :]) + 1
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        ax.set_zlim(z_min, z_max)
     # States x
     ################## Linear #############           ############# Rotational ##########################
     #   0      1      2      3      4       5      6       7       8       9      10       11       12
@@ -447,17 +458,7 @@ def animate(
             )
             yaw_phi_y.update_line(yaw_phi_y_data)
         # Setting the size of the view
-        if follow:
-            ax.set_xlim(
-                states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
-            )
-            ax.set_ylim(
-                -states[1, frame * frame_mult] - 1, -states[1, frame * frame_mult] + 1
-            )
-            ax.set_zlim(
-                -states[2, frame * frame_mult] - 1, -states[2, frame * frame_mult] + 1
-            )
-        else:
+        if follow == 0:
             if frame == 0:
                 ax.set_xlim(
                     states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
@@ -482,6 +483,17 @@ def animate(
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(y_min, y_max)
             ax.set_zlim(z_min, z_max)
+        elif follow == 1 or not des_path and follow == 2:
+            ax.set_xlim(
+                states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
+            )
+            ax.set_ylim(
+                -states[1, frame * frame_mult] - 1, -states[1, frame * frame_mult] + 1
+            )
+            ax.set_zlim(
+                -states[2, frame * frame_mult] - 1, -states[2, frame * frame_mult] + 1
+            )
+
         ax.set_aspect("equal")
         # phi_y = phi_rot.inv().apply([0, 1, 0])
         # b_y = body_rot.apply([0, 1, 0])
