@@ -571,17 +571,19 @@ class TrackingController:
     def force_yaw_transform(self, force_des, yaw_des):
         # return quat and thrust
         # get phi
-        inertial_to_yaw_rotation = R.from_euler("ZXY", [yaw_des, 0, 0])
-        phi = -np.atan2(inertial_to_yaw_rotation.apply(force_des)[1], force_des[2])
-        inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0])
+        inertial_to_yaw_rotation = R.from_euler("ZXY", [yaw_des, 0, 0]).inv()
+        beta_x = inertial_to_yaw_rotation.apply(force_des)[1]
+        beta_z = force_des[2]
+        phi = -np.atan2(beta_x, beta_z)
+        inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0]).inv()
         b_y = self.body_to_inertial_rotation.apply([0, 1, 0])
         phi_y = inertial_to_phi_rotation.inv().apply([0, 1, 0])
         dot = np.dot(b_y, phi_y)
         if dot <= 0:
             phi += np.pi
-            inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0])
+            inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0]).inv()
             if phi > np.pi:
-                phi = np.pi * 2 - phi
+                phi = -(np.pi * 2 - phi)
         self.inertial_to_phi_rotation = inertial_to_phi_rotation
 
         # print(np.degrees(phi), "\t", k, end="\t")
@@ -591,7 +593,7 @@ class TrackingController:
             self.flap_l_filt + self.flap_r_filt
         )  # decide on which to use here. Either real or commanded
         eta = (-self.aircraft.delta_C_l_t * delta / 2) / (1 - self.aircraft.C_d_t)
-        theta_top = (
+        sigma_x = (
             eta
             * (
                 force_phi[0]
@@ -601,7 +603,7 @@ class TrackingController:
             - self.aircraft.C_l_v * self.velocity_magnitude * vel_phi[2]
             - force_phi[2]
         )
-        theta_bottom = (
+        sigma_z = (
             eta
             * (
                 force_phi[2]
@@ -611,7 +613,7 @@ class TrackingController:
             + self.aircraft.C_l_v * self.velocity_magnitude * vel_phi[0]
             + force_phi[0]
         )
-        theta = np.atan2(theta_top, theta_bottom)
+        theta = np.atan2(sigma_x, sigma_z)
         # print(np.degrees(theta), end="\t")
         # print(np.degrees(yaw_des))
         # if self.time > 1.744:
