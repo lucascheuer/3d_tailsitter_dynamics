@@ -9,7 +9,7 @@ import copy
 
 
 def main():
-    follow = 2
+    follow = 0
     trail = True
     des_trail = True
     hz = 1000.0
@@ -101,11 +101,11 @@ def main():
 
     pos_gain = np.zeros((3, 3))
     pos_gain[0, 0] = 30
-    pos_gain[1, 1] = 1
+    pos_gain[1, 1] = 5
     pos_gain[2, 2] = 15
     vel_gain = np.zeros((3, 3))
     vel_gain[0, 0] = 25
-    vel_gain[1, 1] = 0
+    vel_gain[1, 1] = 3
     vel_gain[2, 2] = 12
     acc_gain = np.zeros((3, 3))
     acc_gain[0, 0] = 2
@@ -116,9 +116,9 @@ def main():
     quat_gain[1, 1] = 100  # pitch
     quat_gain[2, 2] = 100  # yaw
     omega_gain = np.zeros((3, 3))
-    omega_gain[0, 0] = 15  # roll
+    omega_gain[0, 0] = 40  # roll
     omega_gain[1, 1] = 100  # pitch
-    omega_gain[2, 2] = 20  # yaw
+    omega_gain[2, 2] = 80  # yaw
     angular_acceleration_controller = TrackingController(
         pos_gain,
         vel_gain,
@@ -131,13 +131,18 @@ def main():
     )
     np.set_printoptions(suppress=True, precision=6)
     orientation_naught = R.from_euler(
-        "ZXY", [np.deg2rad(0), np.deg2rad(0), np.deg2rad(90)]
+        "ZXY", [np.deg2rad(90), np.deg2rad(-11), np.deg2rad(90)]
     )
     quat_0 = orientation_naught.as_quat(scalar_first=True)
-    traj_base_amp = 2
-    traj_base_freq = 0.125
-    base_vel = traj_base_amp * np.pi * 2 * traj_base_freq
-    v_body_0 = orientation_naught.inv().apply(np.array([0, 0, -base_vel]))
+
+    traj_base_amp = 2.0
+    traj_base_freq = 1 / 8
+    base_period = 1 / traj_base_freq
+    t_start = base_period * 0
+    t_end = t_start + base_period * 1.0
+    base_vel_circ = traj_base_amp * np.pi * 2 * traj_base_freq
+    v_body_0 = orientation_naught.inv().apply(np.array([base_vel_circ, 0, 0]))
+    print(v_body_0)
     # States x
     ################## Linear #############           ############# Rotational ##########################
     #   0      1      2      3      4       5      6       7       8       9      10       11       12
@@ -149,8 +154,8 @@ def main():
     control_0 = np.array([np.deg2rad(-0), np.deg2rad(-0), -293, 293])
     state_0 = np.array(
         [
-            traj_base_amp,
             0,
+            traj_base_amp,
             0,
             v_body_0[0],
             v_body_0[1],
@@ -172,8 +177,6 @@ def main():
     # initial_state = dynamics(0, state_0, control_0, aircraft, environment, [1])
     # state_0[13:46] = initial_state[13:46]
 
-    t_start = 2
-    t_end = 10
     dt = 1 / hz
     t_step_count = int((t_end - t_start) * hz)
     t_steps = np.linspace(t_start, t_end, t_step_count)
@@ -189,8 +192,14 @@ def main():
     moment_commanded = np.zeros((3, t_step_count))
     moment_achieved = np.zeros((3, t_step_count))
     euler_des = np.zeros((3, t_step_count))
+    quat_des = np.zeros((4, t_step_count))
+    phi_des = np.zeros((t_step_count))
+    theta_des = np.zeros((t_step_count))
+    phi_dot_des = np.zeros((t_step_count))
+    theta_dot_des = np.zeros((t_step_count))
     omega_filtered = np.zeros((3, t_step_count))
     omega_des = np.zeros((3, t_step_count))
+    omega_des_calc = np.zeros((3, t_step_count))
     omega_dot = np.zeros((3, t_step_count))
     omega_dot_filtered = np.zeros((3, t_step_count))
     omega_dot_des = np.zeros((3, t_step_count))
@@ -249,7 +258,6 @@ def main():
         )
         state_f = solution.y[:, -1]
         states[:, step] = state_f
-        controls_des[:, step] = control_f
         controls[:, step] = state_f[13:17]
         body_to_inertial_rotation = R.from_quat(
             (state_f[6], state_f[7], state_f[8], state_f[9]), scalar_first=True
@@ -270,13 +278,18 @@ def main():
         )
         acc_x = (
             -traj_base_amp
-            * np.pi
-            * np.pi
-            * 2.0
-            * 2.0
-            * traj_base_freq
-            * traj_base_freq
+            * np.pi**2
+            * 2.0**2
+            * traj_base_freq**2
             * np.sin(np.pi * 2.0 * traj_base_freq * time_step)
+        )
+
+        jerk_x = (
+            -traj_base_amp
+            * np.pi**3
+            * 2.0**3
+            * traj_base_freq**3
+            * np.cos(np.pi * 2.0 * traj_base_freq * time_step)
         )
 
         pos_y = traj_base_amp * np.cos(np.pi * 2.0 * traj_base_freq * time_step)
@@ -289,21 +302,94 @@ def main():
         )
         acc_y = (
             -traj_base_amp
-            * np.pi
-            * np.pi
-            * 2.0
-            * 2.0
-            * traj_base_freq
-            * traj_base_freq
+            * np.pi**2
+            * 2.0**2
+            * traj_base_freq**2
             * np.cos(np.pi * 2.0 * traj_base_freq * time_step)
         )
-        yaw = 0
+        jerk_y = (
+            traj_base_amp
+            * np.pi**3
+            * 2.0**3
+            * traj_base_freq**3
+            * np.sin(np.pi * 2.0 * traj_base_freq * time_step)
+        )
+
+        # pos_z = (
+        #     0.2 * traj_base_amp * np.sin(np.pi * 2.0 * traj_base_freq * 2 * time_step)
+        # )
+        # vel_z = (
+        #     0.2
+        #     * traj_base_amp
+        #     * np.pi
+        #     * 2.0
+        #     * traj_base_freq
+        #     * 2.0
+        #     * np.cos(np.pi * 2.0 * traj_base_freq * 2 * time_step)
+        # )
+        # acc_z = (
+        #     -0.2
+        #     * traj_base_amp
+        #     * np.pi**2
+        #     * 2.0**2
+        #     * traj_base_freq**2
+        #     * 2.0**2
+        #     * np.sin(np.pi * 2.0 * traj_base_freq * 2 * time_step)
+        # )
+        # jerk_z = (
+        #     -0.2
+        #     * traj_base_amp
+        #     * np.pi**3
+        #     * 2.0**3
+        #     * traj_base_freq**3
+        #     * 2.0**3
+        #     * np.cos(np.pi * 2.0 * traj_base_freq * 2 * time_step)
+        # )
+
+        # pos_z = pos_y
+        # vel_z = vel_y
+        # acc_z = acc_y
+        # jerk_z = jerk_y
+        # pos_y = pos_x
+        # vel_y = vel_x
+        # acc_y = acc_x
+        # jerk_y = jerk_x
+
+        # pos_x = 0
+        # vel_x = 0
+        # acc_x = 0
+        # jerk_x = 0
+
+        # pos_y = 0
+        # vel_y = 0
+        # acc_y = 0
+        # jerk_y = 0
+
+        pos_z = 0
+        vel_z = 0
+        acc_z = 0
+        jerk_z = 0
+
+        yaw = -time_step * np.pi * 2.0 * traj_base_freq + np.pi / 2
+        yaw_dot = -np.pi * 2.0 * traj_base_freq
+        # yaw = np.pi / 2 * np.sin(np.pi * 2.0 * traj_base_freq * time_step)
+        # yaw_dot = (
+        #     np.pi
+        #     * 2.0
+        #     * traj_base_freq
+        #     * np.pi
+        #     / 2
+        #     * np.cos(np.pi * 2.0 * traj_base_freq * time_step)
+        # )
+        # yaw = 0
+        # yaw_dot = 0
         control_f = angular_acceleration_controller.update(
-            [pos_x, 0, pos_y],
-            [vel_x, 0, vel_y],
-            [acc_x, 0, acc_y],
-            yaw,  # 2.5 * np.pi * np.sin(time_step * np.pi * 2.0 * traj_base_freq),
-            [0, 0, 0],
+            [pos_x, pos_y, pos_z],
+            [vel_x, vel_y, vel_z],
+            [acc_x, acc_y, acc_z],
+            [jerk_x, jerk_y, jerk_z],
+            yaw,
+            yaw_dot,
             state_f,
             control_f,
             real_acceleration,
@@ -320,6 +406,7 @@ def main():
         controller_desired = angular_acceleration_controller.get_desired()
         positions_des[:, step] = controller_desired[10:13]
         velocities_des[:, step] = controller_desired[13:16]
+        quat_des[:, step] = controller_desired[0:4]
         euler_des[:, step] = R.from_quat(
             controller_desired[0:4], scalar_first=True
         ).as_euler("ZXY")
@@ -333,6 +420,10 @@ def main():
         angle_error_vec[:, step] = (
             angular_acceleration_controller.angle_error_vec.copy()
         )
+        phi_des[step] = angular_acceleration_controller.phi
+        theta_des[step] = angular_acceleration_controller.theta
+        phi_dot_des[step] = angular_acceleration_controller.phi_dot
+        theta_dot_des[step] = angular_acceleration_controller.theta_dot
 
         # print(control_test)
         # print(np.linalg.norm(state_f[28:31]) / aircraft.mass)
@@ -342,7 +433,6 @@ def main():
         controls,
         aircraft,
         hz,
-        phi_data,
         fps=30,
         force_data=force_data,
         follow=follow,
@@ -352,22 +442,10 @@ def main():
         phi_data=phi_data,
         draw_phi_data=False,
         save_anim=False,
-        file_name="slow_loop.mp4",
+        file_name="test.mp4",
     )
 
     plt.show()
-
-    fig, axs = plt.subplots(3, 1)
-    fig.suptitle("angle error vec")
-    ax = axs[0]
-    ax.set_title("x")
-    ax.plot(t_steps, angle_error_vec[0, :])
-    ax = axs[1]
-    ax.set_title("y")
-    ax.plot(t_steps, angle_error_vec[1, :])
-    ax = axs[2]
-    ax.set_title("z")
-    ax.plot(t_steps, angle_error_vec[2, :])
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("position vs desired")
@@ -432,27 +510,6 @@ def main():
     ax.plot(t_steps, accelerations_filtered[2, :])
     ax.plot(t_steps, accelerations_des[2, :])
 
-    # fig, axs = plt.subplots(3, 1)
-    # fig.suptitle("orientation")
-    # ax = axs[0]
-    # ax.set_title("roll")
-    # # ax.plot(t_steps, np.degrees(orientation[1, :]))
-    # # ax.plot(t_steps, np.degrees(euler_des[1, :]))
-    # ax.plot(t_steps, orientation[1, :])
-    # ax.plot(t_steps, euler_des[1, :])
-    # ax = axs[1]
-    # ax.set_title("pitch")
-    # # ax.plot(t_steps, np.degrees(orientation[2, :]))
-    # # ax.plot(t_steps, np.degrees(euler_des[2, :]))
-    # ax.plot(t_steps, orientation[2, :])
-    # ax.plot(t_steps, euler_des[2, :])
-    # ax = axs[2]
-    # ax.set_title("yaw")
-    # # ax.plot(t_steps, np.degrees(orientation[0, :]))
-    # # ax.plot(t_steps, np.degrees(euler_des[0, :]))
-    # ax.plot(t_steps, orientation[0, :])
-    # ax.plot(t_steps, euler_des[0, :])
-
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("orientation")
     ax = axs[0]
@@ -471,15 +528,17 @@ def main():
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("angular velocity body vs filtered")
     ax = axs[0]
-    ax.plot(t_steps, states[10, :])
+    ax.set_title("yaw")
     ax.plot(t_steps, omega_filtered[0, :])
     ax.plot(t_steps, omega_des[0, :])
+
     ax = axs[1]
-    ax.plot(t_steps, states[11, :])
+    ax.set_title("pitch")
     ax.plot(t_steps, omega_filtered[1, :])
     ax.plot(t_steps, omega_des[1, :])
+
     ax = axs[2]
-    ax.plot(t_steps, states[12, :])
+    ax.set_title("roll")
     ax.plot(t_steps, omega_filtered[2, :])
     ax.plot(t_steps, omega_des[2, :])
 

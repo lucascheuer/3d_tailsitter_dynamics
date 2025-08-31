@@ -91,6 +91,8 @@ class TrackingController:
         self.flap_r_filt = 0
         self.motor_w_l_filt = 0
         self.motor_w_r_filt = 0
+        self.phi = 0
+        self.theta = 0
 
         # saved forces
         self.force_inertial_lpf = np.zeros(3)
@@ -137,8 +139,9 @@ class TrackingController:
         pos_des,
         vel_des,
         acc_des,
+        jerk_des,
         yaw_des,
-        omega_des,
+        yaw_rate_des,
         x,
         u,
         acceleration,
@@ -147,25 +150,34 @@ class TrackingController:
         self.update_estimates(x, x[13:17], acceleration, omega_dot)
 
         self.time += self.dt
-        self.omega_des = omega_des
-        self.pos_des = pos_des.copy()
-        self.vel_des = vel_des.copy()
-        self.acceleration_des = acc_des.copy()
+        self.pos_des = np.array(pos_des.copy())
+        self.vel_des = np.array(vel_des.copy())
+        self.acceleration_des = np.array(acc_des.copy())  # [0, 1, 0.0]
         self.acceleration_command = self.control_position_velocity(
             self.pos_des, self.vel_des, self.acceleration_des
         )
-        # self.acceleration_command = [0.1, 0, -0.1]
         self.force_command = self.control_linear_acceleration(self.acceleration_command)
-        # self.force_command = -self.force_command
-        self.quat_des, self.thrust_des = self.force_yaw_transform(
-            self.force_command, yaw_des
+        (
+            self.quat_des,
+            self.thrust_des,
+            beta_x,
+            beta_z,
+            sigma_x,
+            sigma_z,
+            eta,
+            vel_phi,
+        ) = self.force_yaw_transform(self.force_command, yaw_des)
+        self.omega_des = self.diff_flatness_jerk_yaw_rate_transform(
+            jerk_des,
+            yaw_des,
+            yaw_rate_des,
+            beta_x,
+            beta_z,
+            sigma_x,
+            sigma_z,
+            eta,
+            vel_phi,
         )
-        # print(self.thrust_des)
-        # self.thrust_des = 1.01 * self.aircraft.mass * 9.81
-        # self.quat_des = R.from_euler("ZXY", [0, 0, np.radians(90)]).as_quat(
-        #     scalar_first=True
-        # )
-        # self.omega_des = [0, 0, 0]
         self.omega_dot_des = self.control_attitude_angular_rate(
             self.quat_des, self.omega_des
         )
@@ -183,7 +195,7 @@ class TrackingController:
                 self.omega_dot_des,  # 7, 8, 9
                 self.pos_des,  # 10, 11, 12
                 self.vel_des,  # 13, 14, 15
-                self.acceleration_des,
+                self.acceleration_command,  # 16, 17, 18
             )
         )
 
@@ -571,22 +583,20 @@ class TrackingController:
     def force_yaw_transform(self, force_des, yaw_des):
         # return quat and thrust
         # get phi
-        inertial_to_yaw_rotation = R.from_euler("ZXY", [yaw_des, 0, 0]).inv()
+        inertial_to_yaw_rotation = R.from_euler("YXZ", [0, 0, -yaw_des])
         beta_x = inertial_to_yaw_rotation.apply(force_des)[1]
         beta_z = force_des[2]
         phi = -np.atan2(beta_x, beta_z)
-        inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0]).inv()
+        inertial_to_phi_rotation = R.from_euler("YXZ", [0, -phi, -yaw_des])
         b_y = self.body_to_inertial_rotation.apply([0, 1, 0])
         phi_y = inertial_to_phi_rotation.inv().apply([0, 1, 0])
         dot = np.dot(b_y, phi_y)
         if dot <= 0:
             phi += np.pi
-            inertial_to_phi_rotation = R.from_euler("ZXY", [yaw_des, phi, 0]).inv()
+            inertial_to_phi_rotation = R.from_euler("YXZ", [0, -phi, -yaw_des])
             if phi > np.pi:
                 phi = -(np.pi * 2 - phi)
         self.inertial_to_phi_rotation = inertial_to_phi_rotation
-
-        # print(np.degrees(phi), "\t", k, end="\t")
         force_phi = inertial_to_phi_rotation.apply(force_des)
         vel_phi = inertial_to_phi_rotation.apply(self.velocity_inertial)
         delta = (
@@ -651,7 +661,103 @@ class TrackingController:
 
         quat = R.from_euler("ZXY", (yaw_des, phi, theta)).as_quat(scalar_first=True)
 
-        return quat, thrust
+        self.phi_last = self.phi
+        self.phi = phi
+        self.theta_last = self.theta
+        self.theta = theta
+
+        return quat, thrust, beta_x, beta_z, sigma_x, sigma_z, eta, vel_phi
+
+    def diff_flatness_jerk_yaw_rate_transform(
+        self,
+        jerk_des,
+        yaw_des,
+        yaw_rate_des,
+        beta_x,
+        beta_z,
+        sigma_x,
+        sigma_z,
+        eta,
+        vel_phi,
+    ):
+        force_dot = self.aircraft.mass * np.array(jerk_des)
+        cyaw = np.cos(yaw_des)
+        syaw = np.sin(yaw_des)
+        cphi = np.cos(self.phi)
+        sphi = np.sin(self.phi)
+        beta_x_dot = (
+            -cyaw * yaw_rate_des * force_dot[0]
+            - syaw * force_dot[0]
+            - syaw * yaw_rate_des * force_dot[1]
+            + cyaw * force_dot[1]
+        )
+        beta_z_dot = force_dot[2]
+        phi_dot_des = -(beta_x_dot * beta_z - beta_x * beta_z_dot) / (
+            beta_x**2 + beta_z**2
+        )
+
+        vel_des_magnitude = np.linalg.norm(self.vel_des)
+        if vel_des_magnitude != 0:
+            vel_dot_des_magnitude = (
+                self.vel_des @ self.acceleration_des / vel_des_magnitude
+            )
+        else:
+            vel_dot_des_magnitude = 0
+
+        inertial_to_phi_dot = np.array(
+            [
+                [-yaw_rate_des * syaw, yaw_rate_des * cyaw, 0],
+                [
+                    phi_dot_des * sphi * syaw - yaw_rate_des * cphi * cyaw,
+                    -phi_dot_des * sphi * cyaw - yaw_rate_des * syaw * cphi,
+                    phi_dot_des * cphi,
+                ],
+                [
+                    phi_dot_des * cphi * syaw + yaw_rate_des * sphi * cyaw,
+                    -phi_dot_des * cphi * cyaw + yaw_rate_des * syaw * sphi,
+                    -phi_dot_des * sphi,
+                ],
+            ]
+        )
+        vel_dot_phi = (
+            inertial_to_phi_dot @ self.vel_des
+            + self.inertial_to_phi_rotation.apply(self.acceleration_des)
+        )
+        force_dot_phi = inertial_to_phi_dot @ (
+            self.force_command
+        ) + self.inertial_to_phi_rotation.apply(force_dot)
+        tau_x = vel_dot_des_magnitude * vel_phi[0] + vel_des_magnitude * vel_dot_phi[0]
+        tau_z = vel_dot_des_magnitude * vel_phi[2] + vel_des_magnitude * vel_dot_phi[2]
+        delta = self.flap_l_filt + self.flap_r_filt
+        sigma_x_dot = (
+            eta * (force_dot_phi[0] + self.aircraft.C_d_v * tau_x)
+            - self.aircraft.delta_C_l_v * delta * tau_x
+            - self.aircraft.C_l_v * tau_z
+            - force_dot_phi[2]
+        )
+
+        sigma_z_dot = (
+            eta * (force_dot_phi[2] + self.aircraft.C_d_v * tau_z)
+            - self.aircraft.delta_C_l_v * delta * tau_z
+            - self.aircraft.C_l_v * tau_x
+            - force_dot_phi[0]
+        )
+
+        theta_dot = (sigma_x_dot * sigma_z - sigma_x * sigma_z_dot) / (
+            sigma_x**2 + sigma_z**2
+        )
+
+        omega_theta = np.array([0, -theta_dot, 0])
+        omega_phi = R.from_euler("YXZ", (-self.theta, 0, 0)).apply(
+            np.array([-phi_dot_des, 0, 0])
+        )
+        omega_yaw = R.from_euler("YXZ", (-self.theta, -self.phi, 0)).apply(
+            np.array([0, 0, yaw_rate_des])
+        )
+        self.theta_dot = theta_dot
+        self.phi_dot = phi_dot_des
+        omega_des = omega_theta + omega_phi + omega_yaw
+        return omega_des
 
     def control_attitude_angular_rate(self, quat_des, omega_des):
         quat_des_obj = np.quaternion(quat_des[0], quat_des[1], quat_des[2], quat_des[3])
@@ -662,7 +768,6 @@ class TrackingController:
             print(end="")
         if bottom == 0:
             angle_error_vector = np.zeros(3)
-            print("uh oh")
         else:
             angle_error_vector = (
                 2
