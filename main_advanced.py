@@ -9,7 +9,7 @@ import copy
 
 
 def main():
-    follow = 0
+    follow = 2
     trail = True
     des_trail = True
     hz = 1000.0
@@ -100,16 +100,16 @@ def main():
     )
 
     pos_gain = np.zeros((3, 3))
-    pos_gain[0, 0] = 30
-    pos_gain[1, 1] = 5
-    pos_gain[2, 2] = 15
+    pos_gain[0, 0] = 30  # x, forward backwards along thrust axis
+    pos_gain[1, 1] = 25  # y, left right along wing axis
+    pos_gain[2, 2] = 16  # z, up down
     vel_gain = np.zeros((3, 3))
     vel_gain[0, 0] = 25
-    vel_gain[1, 1] = 3
-    vel_gain[2, 2] = 12
+    vel_gain[1, 1] = 15
+    vel_gain[2, 2] = 14
     acc_gain = np.zeros((3, 3))
     acc_gain[0, 0] = 2
-    acc_gain[1, 1] = 0
+    acc_gain[1, 1] = 1
     acc_gain[2, 2] = 1
     quat_gain = np.zeros((3, 3))
     quat_gain[0, 0] = 75  # roll
@@ -131,15 +131,15 @@ def main():
     )
     np.set_printoptions(suppress=True, precision=6)
     orientation_naught = R.from_euler(
-        "ZXY", [np.deg2rad(90), np.deg2rad(-11), np.deg2rad(90)]
+        "ZXY", [np.deg2rad(0), np.deg2rad(-20), np.deg2rad(25)]
     )
     quat_0 = orientation_naught.as_quat(scalar_first=True)
 
-    traj_base_amp = 2.0
+    traj_base_amp = 4.35
     traj_base_freq = 1 / 8
     base_period = 1 / traj_base_freq
     t_start = base_period * 0
-    t_end = t_start + base_period * 1.0
+    t_end = t_start + base_period * 1.5
     base_vel_circ = traj_base_amp * np.pi * 2 * traj_base_freq
     v_body_0 = orientation_naught.inv().apply(np.array([base_vel_circ, 0, 0]))
     print(v_body_0)
@@ -151,7 +151,7 @@ def main():
     # Inputs u
     #    0       1         2          3
     # flap_l, flap_r, motor_w_l, motor_w_r
-    control_0 = np.array([np.deg2rad(-0), np.deg2rad(-0), -293, 293])
+    control_0 = np.array([np.deg2rad(-10), np.deg2rad(-10), -235, 235])
     state_0 = np.array(
         [
             0,
@@ -182,8 +182,10 @@ def main():
     t_steps = np.linspace(t_start, t_end, t_step_count)
     states = np.zeros((17, t_step_count))
     positions_des = np.zeros((3, t_step_count))
+    pos_error_body = np.zeros((3, t_step_count))
     velocities_des = np.zeros((3, t_step_count))
     velocities_inertial = np.zeros((3, t_step_count))
+    vel_error_body = np.zeros((3, t_step_count))
     accelerations = np.zeros((3, t_step_count))
     accelerations_filtered = np.zeros((3, t_step_count))
     accelerations_des = np.zeros((3, t_step_count))
@@ -370,7 +372,7 @@ def main():
         acc_z = 0
         jerk_z = 0
 
-        yaw = -time_step * np.pi * 2.0 * traj_base_freq + np.pi / 2
+        yaw = -time_step * np.pi * 2.0 * traj_base_freq  # + np.pi / 2
         yaw_dot = -np.pi * 2.0 * traj_base_freq
         # yaw = np.pi / 2 * np.sin(np.pi * 2.0 * traj_base_freq * time_step)
         # yaw_dot = (
@@ -407,9 +409,12 @@ def main():
         positions_des[:, step] = controller_desired[10:13]
         velocities_des[:, step] = controller_desired[13:16]
         quat_des[:, step] = controller_desired[0:4]
-        euler_des[:, step] = R.from_quat(
-            controller_desired[0:4], scalar_first=True
-        ).as_euler("ZXY")
+        current_rotation = R.from_quat(controller_desired[0:4], scalar_first=True)
+        euler_des[:, step] = current_rotation.as_euler("ZXY")
+        # pos_error = positions_des[:, step] - states[:3, step]
+        # vel_error = velocities_des[:, step] - states[3:6, step]
+        # pos_error_body[:, step] = current_rotation.apply(pos_error)
+        # vel_error_body[:, step] = current_rotation.apply(vel_error)
         omega_des[:, step] = controller_desired[4:7]
         omega_dot_des[:, step] = controller_desired[7:10]
         accelerations_des[:, step] = controller_desired[16:19]
@@ -462,6 +467,18 @@ def main():
     ax.plot(t_steps, states[2, :])
     ax.plot(t_steps, positions_des[2, :])
 
+    # fig, axs = plt.subplots(3, 1)
+    # fig.suptitle("position error body")
+    # ax = axs[0]
+    # ax.set_title("x")
+    # ax.plot(t_steps, pos_error_body[0, :])
+    # ax = axs[1]
+    # ax.set_title("y")
+    # ax.plot(t_steps, pos_error_body[1, :])
+    # ax = axs[2]
+    # ax.set_title("z")
+    # ax.plot(t_steps, pos_error_body[2, :])
+
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("velocity inertial vs desired")
     ax = axs[0]
@@ -476,6 +493,18 @@ def main():
     ax.set_title("z")
     ax.plot(t_steps, velocities_inertial[2, :])
     ax.plot(t_steps, velocities_des[2, :])
+
+    # fig, axs = plt.subplots(3, 1)
+    # fig.suptitle("velocity error body")
+    # ax = axs[0]
+    # ax.set_title("x")
+    # ax.plot(t_steps, vel_error_body[0, :])
+    # ax = axs[1]
+    # ax.set_title("y")
+    # ax.plot(t_steps, vel_error_body[1, :])
+    # ax = axs[2]
+    # ax.set_title("z")
+    # ax.plot(t_steps, vel_error_body[2, :])
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("commanded forces")
