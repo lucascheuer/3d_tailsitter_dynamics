@@ -529,7 +529,7 @@ def animate(
         maxi=last_frame,
         save_count=last_frame,
     )
-    ani.camera_switch.on_clicked(change_camera)
+    ani.button_camera_switch.on_clicked(change_camera)
 
     plt.show()
     if save_anim:

@@ -27,6 +27,7 @@ class Player(FuncAnimation):
         self.forwards = True
         self.fig = fig
         self.func = func
+        self.repeat = False
         self.setup(pos)
         FuncAnimation.__init__(
             self,
@@ -44,10 +45,10 @@ class Player(FuncAnimation):
             self.i = self.i + self.forwards - (not self.forwards)
             if self.i > self.min and self.i < self.max:
                 yield self.i
-            # elif self.i == self.max and self.forwards:
-            #     self.i = self.min
-            # elif self.i == self.min and not self.forwards:
-            #     self.i = self.max
+            elif self.repeat and self.i == self.max and self.forwards:
+                self.i = self.min
+            elif self.repeat and self.i == self.min and not self.forwards:
+                self.i = self.max
             else:
                 self.stop()
                 yield self.i
@@ -82,6 +83,15 @@ class Player(FuncAnimation):
         self.forwards = False
         self.onestep()
 
+    def repeat_toggle(self, event=None):
+        self.repeat = not self.repeat
+        if self.repeat:
+            self.button_repeat_toggle.label.set_color("white")
+            self.button_repeat_toggle.color = "black"
+        else:
+            self.button_repeat_toggle.label.set_color("black")
+            self.button_repeat_toggle.color = "gainsboro"
+
     def onestep(self):
         if self.i > self.min and self.i < self.max:
             self.i = self.i + self.forwards - (not self.forwards)
@@ -104,12 +114,15 @@ class Player(FuncAnimation):
         fax = divider.append_axes("right", size="80%", pad=0.05)
         ofax = divider.append_axes("right", size="100%", pad=0.05)
         csax = divider.append_axes("right", size="100%", pad=0.05)
+        rpax = divider.append_axes("right", size="80%", pad=0.05)
         self.button_oneback = matplotlib.widgets.Button(playerax, label="$\u29cf$")
         self.button_back = matplotlib.widgets.Button(bax, label="$\u25c0$")
         self.button_stop = matplotlib.widgets.Button(sax, label="$\u25a0$")
         self.button_forward = matplotlib.widgets.Button(fax, label="$\u25b6$")
         self.button_oneforward = matplotlib.widgets.Button(ofax, label="$\u29d0$")
-        self.camera_switch = matplotlib.widgets.Button(csax, label="$\u1f4f7$")
+        self.button_camera_switch = matplotlib.widgets.Button(csax, label="C")
+        self.button_repeat_toggle = matplotlib.widgets.Button(rpax, label="$\u27f3$")
+        self.button_repeat_toggle.on_clicked(self.repeat_toggle)
         self.button_oneback.on_clicked(self.onebackward)
         self.button_back.on_clicked(self.backward)
         self.button_stop.on_clicked(self.stop)
