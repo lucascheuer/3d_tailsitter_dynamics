@@ -11,6 +11,8 @@ from scipy.spatial.transform import Rotation as R
 
 from global_dynamics import Aircraft
 
+follow_global = 0
+
 
 class ForceLine:
     def __init__(
@@ -68,7 +70,8 @@ def animate(
     save_anim=False,
     file_name="tmp.mp4",
 ):
-
+    global follow_global
+    follow_global = follow
     frame_mult = int(data_hz / fps)
     print(frame_mult)
     elevon_chord = aircraft.chord * aircraft.elevon_percentage
@@ -154,13 +157,13 @@ def animate(
         (line,) = ax.plot([0], [0], color="k")
 
     if des_path:
+        des_path_data[:, 0] = des_path_data[:, 1]
         (des_path_line,) = ax.plot([0], [0], color="b")
         des_path_line.set_data_3d(
             des_path_data[0, :],
             -des_path_data[1, :],
             -des_path_data[2, :],
         )
-        (des_path_trail,) = ax.plot([0], [0], color="g")
         (des_point,) = ax.plot([], [], [], color="red", marker="o")
     # force arrows
     #     0:3         3:6            6:9         9:12       12:15     15:18           18:21              21:24            24:27           27:30           30:33           33:36
@@ -246,7 +249,7 @@ def animate(
     # ax.set_ylim(-1, 1)
     # ax.set_zlim(-1, 1)
 
-    if follow == 2 and des_path:
+    if follow_global == 2 and des_path:
         x_min = np.min(des_path_data[0, :]) - 1
         x_max = np.max(des_path_data[0, :]) + 1
         y_min = np.min(-des_path_data[1, :]) - 1
@@ -256,6 +259,15 @@ def animate(
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
         ax.set_zlim(z_min, z_max)
+
+    def change_camera(event=None):
+        global follow_global
+
+        follow_global += 1
+        if follow_global > 2:
+            follow_global = 0
+        print(follow_global)
+
     # States x
     ################## Linear #############           ############# Rotational ##########################
     #   0      1      2      3      4       5      6       7       8       9      10       11       12
@@ -276,11 +288,6 @@ def animate(
             # print(states[0, : frame * frame_mult + 1])
             # print()
         if des_path:
-            des_path_trail.set_data_3d(
-                des_path_data[0, : frame * frame_mult + 1 : 2],
-                -des_path_data[1, : frame * frame_mult + 1 : 2],
-                -des_path_data[2, : frame * frame_mult + 1 : 2],
-            )
             des_point.set_data(
                 [des_path_data[0, frame * frame_mult]],
                 [-des_path_data[1, frame * frame_mult]],
@@ -458,7 +465,7 @@ def animate(
             )
             yaw_phi_y.update_line(yaw_phi_y_data)
         # Setting the size of the view
-        if follow == 0:
+        if follow_global == 0:
             if frame == 0:
                 ax.set_xlim(
                     states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
@@ -483,7 +490,7 @@ def animate(
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(y_min, y_max)
             ax.set_zlim(z_min, z_max)
-        elif follow == 1 or not des_path and follow == 2:
+        elif follow_global == 1 or not des_path and follow_global == 2:
             ax.set_xlim(
                 states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
             )
@@ -493,8 +500,17 @@ def animate(
             ax.set_zlim(
                 -states[2, frame * frame_mult] - 1, -states[2, frame * frame_mult] + 1
             )
-
-        ax.set_aspect("equal")
+        elif follow_global == 2 and des_path:
+            x_min = np.min(des_path_data[0, :]) - 1
+            x_max = np.max(des_path_data[0, :]) + 1
+            y_min = np.min(-des_path_data[1, :]) - 1
+            y_max = np.max(-des_path_data[1, :]) + 1
+            z_min = np.min(-des_path_data[2, :]) - 1
+            z_max = np.max(-des_path_data[2, :]) + 1
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, y_max)
+            ax.set_zlim(z_min, z_max)
+            ax.set_aspect("equal")
         # phi_y = phi_rot.inv().apply([0, 1, 0])
         # b_y = body_rot.apply([0, 1, 0])
         # dot = np.dot(b_y, phi_y)
@@ -513,6 +529,7 @@ def animate(
         maxi=last_frame,
         save_count=last_frame,
     )
+    ani.camera_switch.on_clicked(change_camera)
 
     plt.show()
     if save_anim:
