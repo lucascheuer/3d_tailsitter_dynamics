@@ -762,13 +762,10 @@ class TrackingController:
     def control_attitude_angular_rate(self, quat_des, omega_des):
         quat_des_obj = np.quaternion(quat_des[0], quat_des[1], quat_des[2], quat_des[3])
         error_quat = self.quaternion.conj() * quat_des_obj
-
-        bottom = np.sqrt(1 - error_quat.w**2)
-        if self.time > 1.744:
-            print(end="")
-        if bottom == 0:
+        if error_quat.w >= 1.0:
             angle_error_vector = np.zeros(3)
         else:
+            bottom = np.sqrt(1 - error_quat.w**2)
             angle_error_vector = (
                 2
                 * np.arccos(error_quat.w)
