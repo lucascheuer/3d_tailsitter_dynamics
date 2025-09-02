@@ -52,6 +52,7 @@ class Player(FuncAnimation):
             else:
                 self.stop()
                 yield self.i
+            self.slider.set_val(self.i)
 
     def start(self):
         if (
@@ -103,8 +104,16 @@ class Player(FuncAnimation):
             self.i = self.min
         elif self.i == self.min and not self.forwards:
             self.i = self.max
+        self.slider.set_val(self.i)
         self.func(self.i)
         self.fig.canvas.draw_idle()
+
+    def update(self, i):
+        self.slider.set_val(i)
+
+    def set_pos(self, i):
+        self.i = int(self.slider.val)
+        self.func(self.i)
 
     def setup(self, pos):
         playerax = self.fig.add_axes([pos[0], pos[1], 0.22, 0.04])
@@ -128,3 +137,13 @@ class Player(FuncAnimation):
         self.button_stop.on_clicked(self.stop)
         self.button_forward.on_clicked(self.forward)
         self.button_oneforward.on_clicked(self.oneforward)
+        self.axfreq = self.fig.add_axes([0.25, 0.1, 0.65, 0.03])
+        self.slider = matplotlib.widgets.Slider(
+            ax=self.axfreq,
+            label="Frame",
+            valmin=self.min,
+            valmax=self.max - 1,
+            valinit=self.min,
+            valstep=range(self.max),
+        )
+        self.slider.on_changed(self.set_pos)
