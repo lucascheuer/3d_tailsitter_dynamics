@@ -116,14 +116,13 @@ class Player(FuncAnimation):
         self.func(self.i)
 
     def setup(self, pos):
-        playerax = self.fig.add_axes([pos[0], pos[1], 0.22, 0.04])
-        divider = mpl_toolkits.axes_grid1.make_axes_locatable(playerax)
-        bax = divider.append_axes("right", size="80%", pad=0.05)
-        sax = divider.append_axes("right", size="80%", pad=0.05)
-        fax = divider.append_axes("right", size="80%", pad=0.05)
-        ofax = divider.append_axes("right", size="100%", pad=0.05)
-        csax = divider.append_axes("right", size="100%", pad=0.05)
-        rpax = divider.append_axes("right", size="80%", pad=0.05)
+        playerax = self.fig.add_axes([0, 0, 0.04, 0.04])
+        bax = self.fig.add_axes([0.04, 0, 0.04, 0.04])
+        sax = self.fig.add_axes([0.08, 0, 0.04, 0.04])
+        fax = self.fig.add_axes([0.12, 0, 0.04, 0.04])
+        ofax = self.fig.add_axes([0.16, 0, 0.04, 0.04])
+        csax = self.fig.add_axes([0.20, 0, 0.04, 0.04])
+        rpax = self.fig.add_axes([0.24, 0, 0.04, 0.04])
         self.button_oneback = matplotlib.widgets.Button(playerax, label="$\u29cf$")
         self.button_back = matplotlib.widgets.Button(bax, label="$\u25c0$")
         self.button_stop = matplotlib.widgets.Button(sax, label="$\u25a0$")
@@ -137,12 +136,12 @@ class Player(FuncAnimation):
         self.button_stop.on_clicked(self.stop)
         self.button_forward.on_clicked(self.forward)
         self.button_oneforward.on_clicked(self.oneforward)
-        self.axfreq = self.fig.add_axes([0.25, 0.1, 0.65, 0.03])
+        axslider = self.fig.add_axes([0.30, 0, 0.65, 0.04])
         self.slider = matplotlib.widgets.Slider(
-            ax=self.axfreq,
-            label="Frame",
+            ax=axslider,
+            label="",
             valmin=self.min,
-            valmax=self.max - 1,
+            valmax=self.max,
             valinit=self.min,
             valstep=range(self.max),
         )
