@@ -127,16 +127,18 @@ int main(int argc, char* argv[])
     if (argc > 1)
     {
         output_filename = std::string(argv[1]);
-        std::cout << "First argument as string: " << output_filename << std::endl;
     }
     std::string output_dot_filename = "out_dot.csv";
     if (argc > 2)
     {
-        output_dot_filename = std::string(argv[1]);
-        std::cout << "Second argument as string: " << output_dot_filename << std::endl;
+        output_dot_filename = std::string(argv[2]);
     }
-    std::cout << "Output filename: " << output_filename << std::endl;
-    std::cout << "Output dot filename: " << output_dot_filename << std::endl;
+
+    std::string control_filename = "control.csv";
+    if (argc > 3)
+    {
+        control_filename = std::string(argv[3]);
+    }
 
     // get run parameters
     double t_start = 0.0;
@@ -191,7 +193,7 @@ int main(int argc, char* argv[])
             "/home/luca/robotics/prototyping/rk45/controller_params.toml",
             aircraft_params,
             environmental_params);
-    TrackingController controller(controller_params);
+    TrackingController controller(controller_params, control_filename);
     AircraftDynamics::AircraftInput input{
         .elevon_angle_dot_left = 0,
         .elevon_angle_dot_right = 0,
