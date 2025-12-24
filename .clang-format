@@ -1,0 +1,30 @@
+BasedOnStyle: Google
+ColumnLimit: 100
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: true
+  AfterFunction: true
+  AfterEnum: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  AfterNamespace: true
+  AfterObjCInterface: true
+  AfterObjCImplementation: true
+  AfterObjCMethod: true
+  AfterObjCProperty: true
+  AfterObjCSynthesize: true
+  AfterObjCProtocol: true
+  AfterCaseLabel: false
+AllowShortIfStatementsOnASingleLine: false
+Language: Cpp
+ContinuationIndentWidth: 4
+BinPackArguments: false
+BinPackParameters: false
+AlignAfterOpenBracket: AlwaysBreak
+IndentCaseLabels: true
+AllowAllParametersOfDeclarationOnNextLine: false
