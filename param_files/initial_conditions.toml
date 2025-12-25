@@ -1,0 +1,16 @@
+pos_x = 0.0
+pos_y = 2.0
+pos_z = 0.0
+vel_x = 1.57079633
+vel_y = 0.0
+vel_z = 0.0
+roll = 0.0
+pitch = 70.0
+yaw = 0.0
+omega_x = 0.0
+omega_y = 0.0
+omega_z = 0.0
+elevon_left = -0.0
+elevon_right = -0.0
+motor_omega_left = -0.0
+motor_omega_right = 0.0

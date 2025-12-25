@@ -1,0 +1,10 @@
+elevon_lift_coeff_airspeed = 0.055
+elevon_lift_coeff_thrust = 0.75
+lift_coeff_thrust = 0
+pitch_coeff_thrust = 0
+controller_frequency = 1000
+pos_gain = [30, 25, 16]
+vel_gain = [25, 15, 14]
+acc_gain = [2, 1, 1]
+quat_gain = [75, 100, 100]
+omega_gain = [40, 100, 80]

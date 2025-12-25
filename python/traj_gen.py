@@ -9,7 +9,7 @@ header_text = "times,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,acc_x,acc_y,acc_z,jerk_
 # Using a 'with' statement ensures the file is closed automatically
 circle_amplitude = 2.0
 circle_frequency = 1.0 / 8.0
-spiral_speed = -0.1
+spiral_speed = 0
 t_start = 0.0
 t_end = 20.0
 t_step = 0.001
