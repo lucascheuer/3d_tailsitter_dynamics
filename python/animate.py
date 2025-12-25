@@ -15,6 +15,42 @@ from scipy.spatial.transform import Rotation as R
 follow_global = 0
 
 
+class ForceLine:
+    def __init__(
+        self,
+        base: np.array,
+        force_vector: np.array,
+        ax: Axes3D,
+        force_scale=0.25,
+        color="blue",
+    ):
+        self.base = base
+        self.force_scale = force_scale
+        self.force_vector = force_vector * self.force_scale
+        self.base_line = np.zeros((2, 3))
+        self.base_line[0, :] = self.base
+        self.base_line[1, :] = self.force_vector + self.base
+        line_data = self.base_line.copy()
+        self.line = art3d.Line3D(
+            line_data[:, 0], line_data[:, 1], line_data[:, 2], color=color
+        )
+        ax.add_line(self.line)
+
+    # update the line pre-rotation and return it
+    def update_base(self, force_vector: np.array):
+        self.force_vector = force_vector * self.force_scale
+        self.base_line[1, :] = self.force_vector + self.base
+        return self.base_line
+
+    # update the line object
+    def update_line(self, line_data):
+        self.line.set_data_3d(
+            line_data[:, 0],
+            line_data[:, 1],
+            line_data[:, 2],
+        )
+
+
 class Aircraft:
     def __init__(
         self,
@@ -94,6 +130,9 @@ def animate(
     aircraft: Aircraft,
     data_hz,
     fps=20,
+    force_data=None,
+    draw_force=False,
+    force_scale=0.5,
     follow=0,
     trail=True,
     des_path_data=None,
@@ -198,7 +237,67 @@ def animate(
     # force arrows
     #     0:3         3:6            6:9         9:12       12:15     15:18           18:21              21:24            24:27           27:30           30:33           33:36
     # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc_l, elv_lift_reduc_r, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
-
+    motor_thr_l = ForceLine(aircraft.p_l, force_data[0:3, 0], ax, force_scale)
+    motor_thr_r = ForceLine(aircraft.p_r, force_data[3:6, 0], ax, force_scale)
+    motor_drag_l = ForceLine(aircraft.p_l, force_data[6:9, 0], ax, force_scale, "green")
+    motor_drag_r = ForceLine(
+        aircraft.p_r, force_data[9:12, 0], ax, force_scale, "green"
+    )
+    lift = ForceLine(
+        np.array([aircraft.chord * 0.25, 0, 0]),
+        force_data[12:15, 0],
+        ax,
+        force_scale,
+        "cyan",
+    )
+    force_gravity = ForceLine(
+        np.array([aircraft.chord * 0.25 + aircraft.delta_r, 0, 0]),
+        force_data[15:18, 0],
+        ax,
+        force_scale,
+        "red",
+    )
+    elv_lift_reduc_l = ForceLine(
+        [wing[0, 0] - wing_chord - elevon_chord * 0.5, -wing_tip * 0.5, 0],
+        force_data[18:21, 0],
+        ax,
+        force_scale,
+        "green",
+    )
+    elv_lift_reduc_r = ForceLine(
+        [wing[0, 0] - wing_chord - elevon_chord * 0.5, wing_tip * 0.5, 0],
+        force_data[21:24, 0],
+        ax,
+        force_scale,
+        "green",
+    )
+    rot_lift_wing = ForceLine([0, 0, 0], force_data[24:27, 0], ax, force_scale)
+    elv_thr_redir_l = ForceLine(
+        [
+            wing[0, 0] - wing_chord - elevon_chord * 0.5,
+            -aircraft.wingspan * 0.25,
+            0,
+        ],
+        force_data[27:30, 0],
+        ax,
+        force_scale,
+    )
+    elv_thr_redir_r = ForceLine(
+        [
+            wing[0, 0] - wing_chord - elevon_chord * 0.5,
+            aircraft.wingspan * 0.25,
+            0,
+        ],
+        force_data[30:33, 0],
+        ax,
+        force_scale,
+    )
+    rot_lift_reduc_elv = ForceLine(
+        [0, 0, 0],
+        force_data[33:36, 0],
+        ax,
+        force_scale,
+    )
     x_min = states[0, 0] - 1
     x_max = states[0, 0] + 1
     y_min = states[1, 0] - 1
@@ -285,12 +384,59 @@ def animate(
         new_right_elevon = right_elevon_rot.apply(new_right_elevon)
         new_left_elevon += [wing_elevon_front, 0, 0]
         new_right_elevon += [wing_elevon_front, 0, 0]
-
+        mtr_thr_l_data = motor_thr_l.update_base(
+            force_data[0:3, frame * frame_mult] * force_scale
+        )
+        mtr_thr_r_data = motor_thr_r.update_base(
+            force_data[3:6, frame * frame_mult] * force_scale
+        )
+        mtr_drg_l_data = motor_drag_l.update_base(
+            force_data[6:9, frame * frame_mult] * force_scale
+        )
+        mtr_drg_r_data = motor_drag_r.update_base(
+            force_data[9:12, frame * frame_mult] * force_scale
+        )
+        lift_data = lift.update_base(
+            force_data[12:15, frame * frame_mult] * force_scale
+        )
+        force_gravity_data = force_gravity.update_base(
+            force_data[15:18, frame * frame_mult] * force_scale
+        )
+        elv_lift_reduc_l_data = elv_lift_reduc_l.update_base(
+            force_data[18:21, frame * frame_mult] * force_scale
+        )
+        elv_lift_reduc_r_data = elv_lift_reduc_r.update_base(
+            force_data[21:24, frame * frame_mult] * force_scale
+        )
+        rot_lift_wing_data = rot_lift_wing.update_base(
+            force_data[24:27, frame * frame_mult] * force_scale
+        )
+        elv_thr_redir_l_data = elv_thr_redir_l.update_base(
+            force_data[27:30, frame * frame_mult] * force_scale
+        )
+        elv_thr_redir_r_data = elv_thr_redir_r.update_base(
+            force_data[30:33, frame * frame_mult] * force_scale
+        )
+        rot_lift_reduc_elv_data = rot_lift_reduc_elv.update_base(
+            force_data[33:36, frame * frame_mult] * force_scale
+        )
         full_body = np.concatenate(
             (
                 wing,
                 new_right_elevon,
                 new_left_elevon,
+                mtr_thr_l_data,
+                mtr_thr_r_data,
+                mtr_drg_l_data,
+                mtr_drg_r_data,
+                lift_data,
+                force_gravity_data,
+                elv_lift_reduc_l_data,
+                elv_lift_reduc_r_data,
+                rot_lift_wing_data,
+                elv_thr_redir_l_data,
+                elv_thr_redir_r_data,
+                rot_lift_reduc_elv_data,
             ),
             axis=0,
         ) + np.array([-aircraft.chord * 0.25, 0, 0])
@@ -310,8 +456,32 @@ def animate(
         new_wing = full_body[:4, :]
         new_right_elevon = full_body[4:8, :]
         new_left_elevon = full_body[8:12, :]
+        mtr_thr_l_data = full_body[12:14, :]
+        mtr_thr_r_data = full_body[14:16, :]
+        mtr_drg_l_data = full_body[16:18, :]
+        mtr_drg_r_data = full_body[18:20, :]
+        lift_data = full_body[20:22, :]
+        force_gravity_data = full_body[22:24, :]
+        # print(np.linalg.norm(force_gravity.force_vector / aircraft.mass))
+        elv_lift_reduc_l_data = full_body[24:26, :]
+        elv_lift_reduc_r_data = full_body[26:28, :]
+        rot_lift_wing_data = full_body[28:30, :]
+        elv_thr_redir_l_data = full_body[30:32, :]
+        elv_thr_redir_r_data = full_body[32:34, :]
+        rot_lift_reduc_elv_data = full_body[34:36, :]
         poly.set_verts([new_wing, new_right_elevon, new_left_elevon])
-
+        motor_thr_l.update_line(mtr_thr_l_data)
+        motor_thr_r.update_line(mtr_thr_r_data)
+        motor_drag_l.update_line(mtr_drg_l_data)
+        motor_drag_r.update_line(mtr_drg_r_data)
+        lift.update_line(lift_data)
+        force_gravity.update_line(force_gravity_data)
+        elv_lift_reduc_l.update_line(elv_lift_reduc_l_data)
+        elv_lift_reduc_r.update_line(elv_lift_reduc_r_data)
+        rot_lift_wing.update_line(rot_lift_wing_data)
+        elv_thr_redir_l.update_line(elv_thr_redir_l_data)
+        elv_thr_redir_r.update_line(elv_thr_redir_r_data)
+        rot_lift_reduc_elv.update_line(rot_lift_reduc_elv_data)
         # Setting the size of the view
         if follow_global == 0:
             if frame == 0:
@@ -392,18 +562,9 @@ def animate(
         )
 
 
-# states,
-#     controls,
-#     aircraft: Aircraft,
-#     data_hz,
-#     fps=20,
-#     follow=0,
-#     trail=False,
-#     des_path_data=None,
-#     des_path=True,
-#     save_anim=False,
-#     file_name="tmp.mp4",
-def find_data_animate(state_file, aircraft_model_params_file, run_settings_file):
+def find_data_animate(
+    state_file, force_file, controls_file, aircraft_model_params_file, run_settings_file
+):
     with open(state_file, mode="r", newline="") as file:
         csv_reader = csv.reader(file)
         states = []
@@ -411,8 +572,28 @@ def find_data_animate(state_file, aircraft_model_params_file, run_settings_file)
         for row in csv_reader:
             float_row = [float(item) for item in row]
             states.append(float_row)
+            # print(len(float_row))
         states = np.array(states).T
         states = states[1:, :]
+    with open(force_file, mode="r", newline="") as file:
+        csv_reader = csv.reader(file)
+        forces = []
+        # next(csv_reader)
+        for row in csv_reader:
+            float_row = [float(item) for item in row]
+            forces.append(float_row)
+        forces = np.array(forces).T
+        forces = forces[1:, :]
+    with open(controls_file, mode="r", newline="") as file:
+        csv_reader = csv.reader(file)
+        des_pos = []
+        next(csv_reader)
+        for row in csv_reader:
+            float_row = [float(item) for item in row[0:4]]
+            des_pos.append(float_row)
+        des_pos = np.array(des_pos).T
+        des_pos = des_pos[1:, :]
+        print(des_pos.shape)
     with open(aircraft_model_params_file, "rb") as f:
         config_data = tomllib.load(f)
         mass = config_data["mass"]
@@ -479,4 +660,30 @@ def find_data_animate(state_file, aircraft_model_params_file, run_settings_file)
         config_data = tomllib.load(f)
         freq = 1 / config_data["time_step"]
         print(freq)
-    animate(states, aircraft, freq, follow=0, fps=30)
+    animate(
+        states,
+        aircraft,
+        freq,
+        force_data=forces,
+        follow=0,
+        fps=30,
+        des_path_data=des_pos,
+        des_path=True,
+    )
+
+
+# def animate(
+#     states,
+#     aircraft: Aircraft,
+#     data_hz,
+#     fps=20,
+#     force_data=None,
+#     draw_force=False,
+#     force_scale=0.5,
+#     follow=0,
+#     trail=True,
+#     des_path_data=None,
+#     des_path=False,
+#     save_anim=False,
+#     file_name="tmp.mp4",
+# ):
