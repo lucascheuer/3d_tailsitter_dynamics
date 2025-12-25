@@ -133,11 +133,40 @@ int main(int argc, char* argv[])
     {
         output_dot_filename = std::string(argv[2]);
     }
-
     std::string control_filename = "control.csv";
     if (argc > 3)
     {
         control_filename = std::string(argv[3]);
+    }
+    std::string forces_filename = "forces.csv";
+    if (argc > 4)
+    {
+        forces_filename = std::string(argv[4]);
+    }
+    std::string aircraft_model_params = "aircraft_model_params.toml";
+    if (argc > 5)
+    {
+        aircraft_model_params = std::string(argv[5]);
+    }
+    std::string controller_params_filename = "controller_params.toml";
+    if (argc > 6)
+    {
+        controller_params_filename = std::string(argv[6]);
+    }
+    std::string run_params = "run_params.toml";
+    if (argc > 7)
+    {
+        run_params = std::string(argv[7]);
+    }
+    std::string initial_conditions_filename = "initial_conditions.toml";
+    if (argc > 8)
+    {
+        initial_conditions_filename = std::string(argv[8]);
+    }
+    std::string trajectory_filename = "trajectory.csv";
+    if (argc > 9)
+    {
+        trajectory_filename = std::string(argv[9]);
     }
 
     // get run parameters
@@ -147,7 +176,7 @@ int main(int argc, char* argv[])
     toml::table tbl;
     try
     {
-        tbl = toml::parse_file("/home/luca/robotics/prototyping/rk45/run_settings.toml");
+        tbl = toml::parse_file(run_params);
         using namespace TomlParseHelpers;
         t_end = ParseDouble(tbl, "run_time");
         t_step = ParseDouble(tbl, "time_step");
@@ -157,8 +186,6 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    // output setup
-    // std::ofstream output_file(output_filename, std::ios::app);
     std::ofstream output_file(output_filename);
     if (output_file.is_open())
     {
@@ -183,16 +210,21 @@ int main(int argc, char* argv[])
                   << std::endl;
         return 0;
     }
+    std::ofstream forces(forces_filename);
+    if (forces.is_open())
+    {
+    } else
+    {
+        std::cerr << "Error: Unable to open file forces file " << forces_filename << std::endl;
+        return 0;
+    }
 
-    std::string params_file = "/home/luca/robotics/prototyping/rk45/aircraft_model_params.toml";
-    AircraftModel aircraft_params(params_file);
+    AircraftModel aircraft_params(aircraft_model_params);
     EnvironmentParameters environmental_params = {.gravity = 9.81, .rho = 1.225};
     AircraftDynamics dynamics(aircraft_params, environmental_params);
     AircraftControllerParameters controller_params =
         AircraftControllerParameters::GetControllerParameters(
-            "/home/luca/robotics/prototyping/rk45/controller_params.toml",
-            aircraft_params,
-            environmental_params);
+            controller_params_filename, aircraft_params, environmental_params);
     TrackingController controller(controller_params, control_filename);
     AircraftDynamics::AircraftInput input{
         .elevon_angle_dot_left = 0,
@@ -202,14 +234,13 @@ int main(int argc, char* argv[])
     std::ifstream traj_file;
     bool use_traj = false;
     AircraftDynamics::AircraftState initial_conditions;
-    if (!OpenTrajFile(traj_file, "/home/luca/robotics/prototyping/rk45/trajectory.csv"))
+    if (!OpenTrajFile(traj_file, trajectory_filename))
     {
         use_traj = true;
     }
-    initial_conditions =
-        ParseInitialConditions("/home/luca/robotics/prototyping/rk45/initial_conditions.toml");
+    initial_conditions = ParseInitialConditions(initial_conditions_filename);
     dynamics.SetState(initial_conditions);
-    output_file << 0.0 << "," << *dynamics.GetState();
+    output_file << 0.0 << "," << *dynamics.GetState() << "\n";
 
     double vel_x_last = 0;
     double vel_y_last = 0;
@@ -224,7 +255,10 @@ int main(int argc, char* argv[])
         // std::cout << "step: " << step << "/" << step_count << std::endl;
         if (dynamics.Update(t_step, input) > 0)
         {
-            output_file << t_step * step << "," << *dynamics.GetState();
+            output_file << t_step * step << "," << *dynamics.GetState() << "\n";
+            forces << t_step * step << ",";
+            dynamics.WriteForces(forces);
+            forces << "\n";
             // double acc_x = dynamics.GetStateDot()->velocity_x;
             // double acc_y = dynamics.GetStateDot()->velocity_y;
             // double acc_z = dynamics.GetStateDot()->velocity_z;

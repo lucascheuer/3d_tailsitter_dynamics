@@ -55,7 +55,7 @@ class AircraftDynamics
                << aircraft_state.omega_x << "," << aircraft_state.omega_y << ","
                << aircraft_state.omega_z << "," << aircraft_state.elevon_angle_left << ","
                << aircraft_state.elevon_angle_right << "," << aircraft_state.motor_omega_left << ","
-               << aircraft_state.motor_omega_right << std::endl;
+               << aircraft_state.motor_omega_right;
             return os;
         }
     };
@@ -81,6 +81,8 @@ class AircraftDynamics
     int Update(double time_step, AircraftInput input);
 
     static void RkFunctionDerivative(double t, double y[], double yp[]);
+
+    static void WriteForces(std::ostream& os);
 
    private:
     AircraftModel aircraft_params_;

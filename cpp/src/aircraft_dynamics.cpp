@@ -112,6 +112,25 @@ Eigen::Vector3d total_moment_body;
 Eigen::Vector3d angular_acceleration_body;
 Eigen::Matrix4d omega_dot_quat;
 Eigen::Vector4d quat_dot;
+
+void AircraftDynamics::WriteForces(std::ostream& os)
+{
+    const Eigen::IOFormat fmt(2, Eigen::DontAlignCols, ",");
+    os << motor_thrust_l_body.transpose().format(fmt) << ","
+       << motor_thrust_r_body.transpose().format(fmt) << ","
+       << propeller_drag_l_body.transpose().format(fmt) << ","
+       << propeller_drag_r_body.transpose().format(fmt) << "," << lift_body.transpose().format(fmt)
+       << "," << force_gravity_body.transpose().format(fmt) << ","
+       << elevon_lift_reduction_l_body.transpose().format(fmt) << ","
+       << elevon_lift_reduction_r_body.transpose().format(fmt) << ","
+       << rotational_lift_wing.transpose().format(fmt) << ","
+       << elevon_thrust_redirection_l_body.transpose().format(fmt) << ","
+       << elevon_thrust_redirection_r_body.transpose().format(fmt) << ","
+       << (rotation_elevon_lift_reduction_l_body + rotation_elevon_lift_reduction_r_body)
+              .transpose()
+              .format(fmt);
+}
+
 void AircraftDynamics::RkFunctionDerivative(double t, double y[], double yp[])
 {
     pos_x = y[0];
