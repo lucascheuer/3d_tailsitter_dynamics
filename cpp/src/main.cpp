@@ -307,14 +307,12 @@ int main(int argc, char* argv[])
                 input = controller.Update(
                     current_step_des,
                     *dynamics.GetState(),
-                    input,
                     Eigen::Vector3d(acc_x, acc_y, acc_z),
                     Eigen::Vector3d(omega_dot_x, omega_dot_y, omega_dot_z));
             } else
             {
                 input = controller.Update(
                     *dynamics.GetState(),
-                    input,
                     Eigen::Vector3d(acc_x, acc_y, acc_z),
                     Eigen::Vector3d(omega_dot_x, omega_dot_y, omega_dot_z));
             }
