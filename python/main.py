@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 from animate import find_data_animate
+from plot_output import find_data_plot
 
 sim_path = Path(__file__).resolve().parent.parent / "cpp" / "build" / "3d_aircraft_sim"
 out_folder = Path(__file__).resolve().parent.parent / "out_files"
@@ -41,3 +42,5 @@ find_data_animate(
     aircraft_model_params_file,
     run_params_file,
 )
+
+find_data_plot(state_out_file, state_dot_out_file, control_out_file)

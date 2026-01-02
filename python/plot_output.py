@@ -19,8 +19,10 @@ def plot_output(states, states_dot, control_data):
     # states[9, :]  # y
     # states[10, :]  # z
     # t,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,quat_w,quat_x,quat_y,quat_z,omega_x,omega_y,omega_z,elevon_left,elevon_right,motor_omega_left,motor_omega_right
+    np.set_printoptions(suppress=True, precision=6)
+
     fig, axs = plt.subplots(3, 1)
-    fig.suptitle("position body")
+    fig.suptitle("position")
     ax = axs[0]
     ax.set_title("x")
     ax.plot(states[0, :], states[1, :])
@@ -35,6 +37,52 @@ def plot_output(states, states_dot, control_data):
     ax.set_title("z")
     ax.plot(states[0, :], states[3, :])
     ax.plot(control_data[0, :], control_data[3, :])
+    r = np.sqrt(states[1, -1] ** 2 + states[2, -1] ** 2)
+    z_pos = states[3, -1]
+
+    quats = states[7:11, :].T
+    quats_xyzw = quats[:, [1, 2, 3, 0]]
+    rotations = R.from_quat(quats_xyzw)
+    euler_angles_deg = rotations.as_euler("ZXY", degrees=True).T
+
+    quats_des = control_data[7:11, :].T
+    quats_xyzw = quats_des[:, [1, 2, 3, 0]]
+    rotations_des = R.from_quat(quats_xyzw)
+    euler_angles_deg_des = rotations_des.as_euler("ZXY", degrees=True).T
+
+    velocity_body = states[4:7, :]
+    velocity_inertial_des = control_data[4:7, :]
+    velocity_inertial = rotations.apply(velocity_body.T).T
+    velocity_body_des = rotations[:-1].inv().apply(velocity_inertial_des.T).T
+    fig, axs = plt.subplots(3, 1)
+    fig.suptitle("velocity inertial")
+    ax = axs[0]
+    ax.set_title("x")
+    ax.plot(states[0, :], velocity_inertial[0, :])
+    ax.plot(control_data[0, :], velocity_inertial_des[0, :])
+    ax = axs[1]
+    ax.set_title("y")
+    ax.plot(states[0, :], velocity_inertial[1, :])
+    ax.plot(control_data[0, :], velocity_inertial_des[1, :])
+    ax = axs[2]
+    ax.set_title("z")
+    ax.plot(states[0, :], velocity_inertial[2, :])
+    ax.plot(control_data[0, :], velocity_inertial_des[2, :])
+
+    fig, axs = plt.subplots(3, 1)
+    fig.suptitle("velocity body")
+    ax = axs[0]
+    ax.set_title("x")
+    ax.plot(states[0, :], velocity_body[0, :])
+    ax.plot(control_data[0, :], velocity_body_des[0, :])
+    ax = axs[1]
+    ax.set_title("y")
+    ax.plot(states[0, :], velocity_body[1, :])
+    ax.plot(control_data[0, :], velocity_body_des[1, :])
+    ax = axs[2]
+    ax.set_title("z")
+    ax.plot(states[0, :], velocity_body[2, :])
+    ax.plot(control_data[0, :], velocity_body_des[2, :])
 
     fig, axs = plt.subplots(4, 1)
     fig.suptitle("quats")
@@ -54,16 +102,6 @@ def plot_output(states, states_dot, control_data):
     ax.set_title("z")
     ax.plot(states[0, :], states[10, :])
     ax.plot(control_data[0, :], control_data[10, :])
-
-    quats = states[7:11, :].T
-    quats_xyzw = quats[:, [1, 2, 3, 0]]
-    rotations = R.from_quat(quats_xyzw)
-    euler_angles_deg = rotations.as_euler("ZXY", degrees=True).T
-
-    quats_des = control_data[7:11, :].T
-    quats_xyzw = quats_des[:, [1, 2, 3, 0]]
-    rotations = R.from_quat(quats_xyzw)
-    euler_angles_deg_des = rotations.as_euler("ZXY", degrees=True).T
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("orientation")
@@ -85,7 +123,7 @@ def plot_output(states, states_dot, control_data):
     ax = axs[0]
     ax.set_title("x")
     ax.plot(states[0, :], states[11, :])
-    ax.plot(control_data[0, :], control_data[1, :])
+    ax.plot(control_data[0, :], control_data[11, :])
     ax = axs[1]
     ax.set_title("y")
     ax.plot(states[0, :], states[12, :])
@@ -125,11 +163,29 @@ def plot_output(states, states_dot, control_data):
     ax.set_title("motor r")
     ax.plot(states[0, :], states[17, :])
     ax.plot(control_data[0, :], control_data[17, :])
+
+    print("pos_x = 0.0")
+    print("pos_y = " + str(r))
+    print("pos_z = " + str(z_pos))
+    print("vel_x_body = " + str(velocity_body[0, -1]))
+    print("vel_y_body = " + str(velocity_body[1, -1]))
+    print("vel_z_body = " + str(velocity_body[2, -1]))
+    print("roll = " + str(euler_angles_deg[1, -1]))
+    print("pitch = " + str(euler_angles_deg[2, -1]))
+    print("yaw = 0.0")
+    print("omega_x = " + str(states[11, -1]))
+    print("omega_y = " + str(states[12, -1]))
+    print("omega_z = " + str(states[13, -1]))
+    print("elevon_left = " + str(np.degrees(control_data[14, -1])))
+    print("elevon_right = " + str(np.degrees(control_data[15, -1])))
+    print("motor_omega_left = " + str(control_data[16, -1]))
+    print("motor_omega_right = " + str(control_data[17, -1]))
+    print()
     plt.show()
 
 
-if __name__ == "__main__":
-    with open("out.csv", mode="r", newline="") as file:
+def find_data_plot(state_file, state_dot_file, control_file):
+    with open(state_file, mode="r", newline="") as file:
         csv_reader = csv.reader(file)
         states = []
         next(csv_reader)
@@ -138,7 +194,7 @@ if __name__ == "__main__":
             states.append(float_row)
 
         states = np.array(states).T
-    with open("out_dot.csv", mode="r", newline="") as file:
+    with open(state_dot_file, mode="r", newline="") as file:
         csv_reader = csv.reader(file)
         states_dot = []
         next(csv_reader)
@@ -147,7 +203,7 @@ if __name__ == "__main__":
             states_dot.append(float_row)
 
         states_dot = np.array(states_dot).T
-    with open("control.csv", mode="r", newline="") as file:
+    with open(control_file, mode="r", newline="") as file:
         csv_reader = csv.reader(file)
         control_data = []
         next(csv_reader)
