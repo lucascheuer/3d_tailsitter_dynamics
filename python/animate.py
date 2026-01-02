@@ -670,20 +670,3 @@ def find_data_animate(
         des_path_data=des_pos,
         des_path=True,
     )
-
-
-# def animate(
-#     states,
-#     aircraft: Aircraft,
-#     data_hz,
-#     fps=20,
-#     force_data=None,
-#     draw_force=False,
-#     force_scale=0.5,
-#     follow=0,
-#     trail=True,
-#     des_path_data=None,
-#     des_path=False,
-#     save_anim=False,
-#     file_name="tmp.mp4",
-# ):
