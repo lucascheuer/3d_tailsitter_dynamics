@@ -9,3 +9,8 @@ uv.lock
 
 # Virtual environments
 .venv
+
+# Other
+prototyping/
+out_files/
+old_python/

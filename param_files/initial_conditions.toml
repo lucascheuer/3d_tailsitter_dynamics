@@ -1,0 +1,16 @@
+pos_x = 0.0
+pos_y = 4.005546518441648
+pos_z = 0
+vel_x_body = 2.46939
+vel_y_body = -0.0135
+vel_z_body = 1.88707
+roll = -13.18359656451589
+pitch = 37.46224960169034
+yaw = 0.0
+omega_x = 0.45891
+omega_y = 0.18396
+omega_z = -0.60955
+elevon_left = -9.348665864252078
+elevon_right = -9.777066407671393
+motor_omega_left = -239.293
+motor_omega_right = 239.897
