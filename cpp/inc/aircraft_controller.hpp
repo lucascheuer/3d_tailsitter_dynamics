@@ -41,18 +41,15 @@ class TrackingController
         double yaw_des,
         double yaw_rate_des,
         const AircraftDynamics::AircraftState current_state,
-        const AircraftDynamics::AircraftInput prev_input,
         Eigen::Vector3d accelerometer_measurement,
         Eigen::Vector3d omega_dot);
     AircraftDynamics::AircraftInput Update(
         AircraftControllerDesired desired,
         const AircraftDynamics::AircraftState current_state,
-        const AircraftDynamics::AircraftInput prev_input,
         Eigen::Vector3d accelerometer_measurement,
         Eigen::Vector3d omega_dot);
     AircraftDynamics::AircraftInput Update(
         const AircraftDynamics::AircraftState current_state,
-        const AircraftDynamics::AircraftInput prev_input,
         Eigen::Vector3d accelerometer_measurement,
         Eigen::Vector3d omega_dot);
     void UpdateDesired(

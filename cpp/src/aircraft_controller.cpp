@@ -34,35 +34,32 @@ AircraftDynamics::AircraftInput TrackingController::Update(
     double yaw_des,
     double yaw_rate_des,
     const AircraftDynamics::AircraftState current_state,
-    const AircraftDynamics::AircraftInput prev_input,
     Eigen::Vector3d accelerometer_measurement,
     Eigen::Vector3d omega_dot)
 {
     UpdateDesired(pos_des, vel_des, acc_des, jerk_des, yaw_des, yaw_rate_des);
-    return Update(current_state, prev_input, accelerometer_measurement, omega_dot);
+    return Update(current_state, accelerometer_measurement, omega_dot);
 }
 AircraftDynamics::AircraftInput TrackingController::Update(
     AircraftControllerDesired desired,
     const AircraftDynamics::AircraftState current_state,
-    const AircraftDynamics::AircraftInput prev_input,
     Eigen::Vector3d accelerometer_measurement,
     Eigen::Vector3d omega_dot)
 {
     UpdateDesired(desired);
-    return Update(current_state, prev_input, accelerometer_measurement, omega_dot);
+    return Update(current_state, accelerometer_measurement, omega_dot);
 }
 AircraftDynamics::AircraftInput TrackingController::Update(
     const AircraftDynamics::AircraftState current_state,
-    const AircraftDynamics::AircraftInput prev_input,
     Eigen::Vector3d accelerometer_measurement,
     Eigen::Vector3d omega_dot)
 {
     AircraftDynamics::AircraftInput input;
-    time_ += dt_;
     memcpy(current_state_.array, current_state.array, sizeof(current_state.array));
     acceleration_measurement_ = accelerometer_measurement;
     angular_acceleration_measurement_ = omega_dot;
     UpdateEstimates();
+    time_ += dt_;
     Eigen::Vector3d acceleration_command = ControlPositionVelocity();
     ControlLinearAcceleration(acceleration_command);
     std::pair<Eigen::Quaterniond, double> force_yaw_out = ForceYawTransform();
@@ -70,16 +67,9 @@ AircraftDynamics::AircraftInput TrackingController::Update(
     Eigen::Vector3d omega_dot_des = ControlAttitudeAngularRate(force_yaw_out.first, omega_des);
     Eigen::Quaterniond q_des = force_yaw_out.first;
     double thrust_des = force_yaw_out.second;
-    // q_des = Eigen::AngleAxisd(0.0 * time_, Eigen::Vector3d::UnitZ()) *
-    //         Eigen::AngleAxisd(0, Eigen::Vector3d::UnitX()) *
-    //         Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitY());
-    // Eigen::Vector3d omega_dot_des = ControlAttitudeAngularRate(q_des, Eigen::Vector3d::Zero());
     Eigen::Vector3d moment_command = ControlAngularAcceleration(omega_dot_des);
-    // std::cout << "Moment Command:" << std::endl << moment_command << std::endl << std::endl;
     TrackingController::AircraftControllerInput controller_output =
         ThrustMomentTransform(thrust_des, moment_command);
-    // std::cout << "Control: " << std::endl << controller_output << std::endl << std::endl;
-    // std::cin.get();
     if (log_controls_)
     {
         // t,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,quat_w,quat_x,quat_y,quat_z,omega_x,omega_y,omega_z,elevon_left,elevon_right,motor_omega_left,motor_omega_right
@@ -112,9 +102,9 @@ void TrackingController::UpdateEstimates()
         current_state_.omega_x,
         current_state_.omega_y,
         current_state_.omega_z);  // TODO: filter this
-    omega_dot_body_filt_ =
-        (omega_body_filt_ - omega_body_filt_prev_) * params_.controller_frequency;
-    omega_body_filt_prev_ = omega_body_filt_;
+    omega_dot_body_filt_ = angular_acceleration_measurement_;
+    //     (omega_body_filt_ - omega_body_filt_prev_) * params_.controller_frequency;
+    // omega_body_filt_prev_ = omega_body_filt_;
     velocity_body_ = Eigen::Vector3d(
         current_state_.velocity_x, current_state_.velocity_y, current_state_.velocity_z);
     velocity_inertial_ = body_to_inertial_ * velocity_body_;
@@ -157,7 +147,7 @@ void TrackingController::UpdateEstimates()
     Eigen::Vector3d force_wing_body_filt(
         -params_.model_params.wing_drag_coeff * current_state_.velocity_x,
         0,
-        -params_.model_params.wing_drag_coeff * current_state_.velocity_z);
+        -params_.model_params.wing_lift_coeff * current_state_.velocity_z);
     force_wing_body_filt *= velocity_magnitude_;
 
     Eigen::Vector3d force_body_filt =
@@ -336,8 +326,10 @@ Eigen::Vector3d TrackingController::DiffFlatnessJerkYawRateTransform()
     Eigen::Vector3d omega_theta(0, -theta_dot, 0);
 
     Eigen::AngleAxisd rot_about_theta(-theta_, Eigen::Vector3d::UnitY());
+    Eigen::AngleAxisd rot_about_phi(-phi_, Eigen::Vector3d::UnitX());
     Eigen::Vector3d omega_phi = rot_about_theta * Eigen::Vector3d(-phi_dot_des, 0, 0);
-    Eigen::Vector3d omega_yaw = rot_about_theta * Eigen::Vector3d(0, 0, yaw_rate_des_);
+    Eigen::Vector3d omega_yaw =
+        rot_about_theta * rot_about_phi * Eigen::Vector3d(0, 0, yaw_rate_des_);
 
     Eigen::Vector3d omega_des = omega_theta + omega_phi + omega_yaw;
     return omega_des;
