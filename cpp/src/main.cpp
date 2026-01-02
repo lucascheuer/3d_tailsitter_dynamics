@@ -53,8 +53,8 @@ AircraftDynamics::AircraftState ParseInitialConditions(std::string filename)
         initial_conditions.omega_x = ParseDouble(tbl, "omega_x");
         initial_conditions.omega_y = ParseDouble(tbl, "omega_y");
         initial_conditions.omega_z = ParseDouble(tbl, "omega_z");
-        initial_conditions.elevon_angle_left = ParseDouble(tbl, "elevon_left");
-        initial_conditions.elevon_angle_right = ParseDouble(tbl, "elevon_right");
+        initial_conditions.elevon_angle_left = ParseDouble(tbl, "elevon_left") / 180.0 * M_PI;
+        initial_conditions.elevon_angle_right = ParseDouble(tbl, "elevon_right") / 180.0 * M_PI;
         initial_conditions.motor_omega_left = ParseDouble(tbl, "motor_omega_left");
         initial_conditions.motor_omega_right = ParseDouble(tbl, "motor_omega_right");
         std::cout << initial_conditions.motor_omega_left << "\t"
