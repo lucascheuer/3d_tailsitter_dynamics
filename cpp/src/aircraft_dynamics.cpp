@@ -271,26 +271,7 @@ void AircraftDynamics::RkFunctionDerivative(double t, double y[], double yp[])
                        rotational_lift_wing + elevon_thrust_redirection_l_body +
                        elevon_thrust_redirection_r_body + rotation_elevon_lift_reduction_l_body +
                        rotation_elevon_lift_reduction_r_body;
-    // std::cout << "____________________" << std::endl
-    //           << total_force_body << std::endl
-    //           << std::endl
-    //           << motor_thrust_l_body << std::endl
-    //           << std::endl
-    //           << motor_thrust_r_body << std::endl
-    //           << std::endl
-    //           << propeller_drag_l_body << std::endl
-    //           << std::endl
-    //           << propeller_drag_r_body << std::endl
-    //           << std::endl
-    //           << elevon_lift_reduction_l_body + elevon_lift_reduction_r_body +
-    //                  elevon_thrust_redirection_l_body + elevon_thrust_redirection_r_body
-    //           << std::endl
-    //           << std::endl
-    //           << lift_body << std::endl
-    //           << std::endl
-    //           << force_gravity_body << std::endl
-    //           << std::endl;
-    // std::cin.get();
+
     acceleration_body =
         total_force_body / aircraft_rk->mass - matrix_cross(omega_body) * velocity_body;
 
@@ -327,10 +308,10 @@ void AircraftDynamics::RkFunctionDerivative(double t, double y[], double yp[])
         rotation_elevon_lift_reduction_r_body;
 
     // Moments from Motor Torque
-    motor_torque_l_body << signum(motor_w_l) * aircraft_rk->prop_moment_coeff * motor_w_l *
+    motor_torque_l_body << -signum(motor_w_l) * aircraft_rk->prop_moment_coeff * motor_w_l *
                                motor_w_l,
         0, 0;
-    motor_torque_r_body << signum(motor_w_r) * aircraft_rk->prop_moment_coeff * motor_w_r *
+    motor_torque_r_body << -signum(motor_w_r) * aircraft_rk->prop_moment_coeff * motor_w_r *
                                motor_w_r,
         0, 0;
 
@@ -379,14 +360,6 @@ void AircraftDynamics::RkFunctionDerivative(double t, double y[], double yp[])
         elevon_thrust_redirection_coeff_moment_r_body + lift_moment_damping_body +
         elevon_lift_reduction_moment_damping_body;
 
-    // std::cout << total_moment_body[1] << "\n"
-    //           << elevon_lift_reduction_moment_l_body[1] << "\n"
-    //           << elevon_lift_reduction_moment_r_body[1] << "\n"
-    //           << lift_moment_body[1] << "\n"
-    //           << elevon_lift_reduction_coeff_moment_body[1] << "\n"
-    //           << lift_moment_damping_body[1] << "\n"
-    //           << elevon_lift_reduction_moment_damping_body[1] << std::endl;
-    // std::cin.get();
     angular_acceleration_body =
         aircraft_rk->moment_of_inertia_inv * total_moment_body -
         aircraft_rk->moment_of_inertia_inv *
