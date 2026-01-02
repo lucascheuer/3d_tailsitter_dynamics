@@ -26,13 +26,23 @@ AircraftDynamics::AircraftState ParseInitialConditions(std::string filename)
         Eigen::Quaterniond q = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) *
                                Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX()) *
                                Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY());
-        double vel_x_inertial = ParseDouble(tbl, "vel_x");
-        double vel_y_inertial = ParseDouble(tbl, "vel_y");
-        double vel_z_inertial = ParseDouble(tbl, "vel_z");
-        Eigen::Vector3d velocity_body =
-            q.conjugate() * Eigen::Vector3d(vel_x_inertial, vel_y_inertial, vel_z_inertial);
-        std::cout << velocity_body << std::endl;
-
+        double vel_x_body = ParseDouble(tbl, "vel_x_body");
+        Eigen::Vector3d velocity_body;
+        if (std::isnan(vel_x_body))
+        {
+            double vel_x_inertial = ParseDouble(tbl, "vel_x_inertial");
+            double vel_y_inertial = ParseDouble(tbl, "vel_y_inertial");
+            double vel_z_inertial = ParseDouble(tbl, "vel_z_inertial");
+            velocity_body =
+                q.conjugate() * Eigen::Vector3d(vel_x_inertial, vel_y_inertial, vel_z_inertial);
+        } else
+        {
+            double vel_y_body = ParseDouble(tbl, "vel_y_body");
+            double vel_z_body = ParseDouble(tbl, "vel_z_body");
+            velocity_body.x() = vel_x_body;
+            velocity_body.y() = vel_y_body;
+            velocity_body.z() = vel_z_body;
+        }
         initial_conditions.velocity_x = velocity_body.x();
         initial_conditions.velocity_y = velocity_body.y();
         initial_conditions.velocity_z = velocity_body.z();
