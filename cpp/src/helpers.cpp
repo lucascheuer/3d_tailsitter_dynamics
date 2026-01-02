@@ -10,7 +10,7 @@ double TomlParseHelpers::ParseDouble(toml::table& tbl, std::string key)
         return *temp;
     } else
     {
-        return 0;
+        return std::nanf("");
     }
 }
 
