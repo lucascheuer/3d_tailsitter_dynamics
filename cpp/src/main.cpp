@@ -1,4 +1,5 @@
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 
 #include "aircraft_controller.hpp"
@@ -202,6 +203,8 @@ int main(int argc, char* argv[])
         output_file << "t,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,quat_w,quat_x,quat_y,quat_z,omega_x,"
                        "omega_y,omega_z,elevon_left,elevon_right,motor_omega_left,motor_omega_right"
                     << std::endl;
+        output_file << std::fixed;
+        output_file << std::setprecision(5);
     } else
     {
         std::cerr << "Error: Unable to open file output file " << output_filename << std::endl;
