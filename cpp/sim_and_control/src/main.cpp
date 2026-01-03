@@ -311,10 +311,15 @@ int main(int argc, char* argv[])
                     Eigen::Vector3d(omega_dot_x, omega_dot_y, omega_dot_z));
             } else
             {
-                input = controller.Update(
-                    *dynamics.GetState(),
-                    Eigen::Vector3d(acc_x, acc_y, acc_z),
-                    Eigen::Vector3d(omega_dot_x, omega_dot_y, omega_dot_z));
+                input.elevon_angle_dot_left = 0.0;
+                input.elevon_angle_dot_right = 0.0;
+                input.motor_omega_dot_left = 0.0;
+                input.motor_omega_dot_right = 0.0;
+
+                // input = controller.Update(
+                //     *dynamics.GetState(),
+                //     Eigen::Vector3d(acc_x, acc_y, acc_z),
+                //     Eigen::Vector3d(omega_dot_x, omega_dot_y, omega_dot_z));
             }
             // std::cout << std::endl;
         } else
