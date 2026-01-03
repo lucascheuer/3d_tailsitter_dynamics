@@ -21,25 +21,6 @@ def plot_output(states, states_dot, control_data):
     # t,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,quat_w,quat_x,quat_y,quat_z,omega_x,omega_y,omega_z,elevon_left,elevon_right,motor_omega_left,motor_omega_right
     np.set_printoptions(suppress=True, precision=6)
 
-    fig, axs = plt.subplots(3, 1)
-    fig.suptitle("position")
-    ax = axs[0]
-    ax.set_title("x")
-    ax.plot(states[0, :], states[1, :])
-    ax.plot(control_data[0, :], control_data[1, :])
-
-    ax = axs[1]
-    ax.set_title("y")
-    ax.plot(states[0, :], states[2, :])
-    ax.plot(control_data[0, :], control_data[2, :])
-
-    ax = axs[2]
-    ax.set_title("z")
-    ax.plot(states[0, :], states[3, :])
-    ax.plot(control_data[0, :], control_data[3, :])
-    r = np.sqrt(states[1, -1] ** 2 + states[2, -1] ** 2)
-    z_pos = states[3, -1]
-
     quats = states[7:11, :].T
     quats_xyzw = quats[:, [1, 2, 3, 0]]
     rotations = R.from_quat(quats_xyzw)
@@ -49,6 +30,38 @@ def plot_output(states, states_dot, control_data):
     quats_xyzw = quats_des[:, [1, 2, 3, 0]]
     rotations_des = R.from_quat(quats_xyzw)
     euler_angles_deg_des = rotations_des.as_euler("ZXY", degrees=True).T
+
+    fig, axs = plt.subplots(3, 1)
+    fig.suptitle("position")
+    ax = axs[0]
+    ax.set_title("x")
+    ax.plot(states[0, :], states[1, :])
+    ax.plot(control_data[0, :], control_data[1, :])
+    ax = axs[1]
+    ax.set_title("y")
+    ax.plot(states[0, :], states[2, :])
+    ax.plot(control_data[0, :], control_data[2, :])
+    ax = axs[2]
+    ax.set_title("z")
+    ax.plot(states[0, :], states[3, :])
+    ax.plot(control_data[0, :], control_data[3, :])
+    r = np.sqrt(states[1, -1] ** 2 + states[2, -1] ** 2)
+    z_pos = states[3, -1]
+    position_inertial = states[1:4, :]
+    position_inertial_des = control_data[1:4, :]
+    position_error_inertial = position_inertial_des - position_inertial[:, :-1]
+    position_error_body = rotations[:-1].apply(position_error_inertial.T).T
+    fig, axs = plt.subplots(3, 1)
+    fig.suptitle("position error body")
+    ax = axs[0]
+    ax.set_title("x")
+    ax.plot(states[0, :-1], position_error_body[0, :])
+    ax = axs[1]
+    ax.set_title("y")
+    ax.plot(states[0, :-1], position_error_body[1, :])
+    ax = axs[2]
+    ax.set_title("z")
+    ax.plot(states[0, :-1], position_error_body[2, :])
 
     velocity_body = states[4:7, :]
     velocity_inertial_des = control_data[4:7, :]
