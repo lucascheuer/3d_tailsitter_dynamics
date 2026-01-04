@@ -3,9 +3,16 @@ from pathlib import Path
 from animate import find_data_animate
 from plot_output import find_data_plot
 
-sim_path = Path(__file__).resolve().parent.parent / "cpp" / "build" / "3d_aircraft_sim"
+sim_path = (
+    Path(__file__).resolve().parent.parent
+    / "cpp"
+    / "sim_and_control"
+    / "build"
+    / "3d_aircraft_sim"
+)
 out_folder = Path(__file__).resolve().parent.parent / "out_files"
 param_folder = Path(__file__).resolve().parent.parent / "param_files"
+trajectory_folder = Path(__file__).resolve().parent.parent / "trajectory_files"
 
 # output files
 state_out_file = out_folder / "states.csv"
@@ -18,7 +25,7 @@ aircraft_model_params_file = param_folder / "aircraft_model_params.toml"
 controller_params_file = param_folder / "controller_params.toml"
 run_params_file = param_folder / "run_settings.toml"
 initial_condition_params_file = param_folder / "initial_conditions.toml"
-trajectory_file = param_folder / "trajectory.csv"
+trajectory_file = trajectory_folder / "trajectory.csv"
 
 input_list = [
     sim_path,
