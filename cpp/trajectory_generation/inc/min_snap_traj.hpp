@@ -19,11 +19,22 @@ class MinSnapTraj
               };
         Eigen::Vector3d pos;
         double yaw;
+        friend std::ostream& operator<<(std::ostream& os, const Waypoint& waypoint)
+        {
+            os << waypoint.pos.x() << "," << waypoint.pos.y() << "," << waypoint.pos.z() << ","
+               << waypoint.yaw;
+            return os;
+        }
     };
     MinSnapTraj();
+    void SetStartDerivatives(std::vector<Waypoint> start_derivatives);
+    void SetEndDerivatives(std::vector<Waypoint> end_derivatives);
+
     void AddWaypoint(Waypoint new_waypoint);
     void ClearWaypoints();
-    bool Solve(double average_speed);
+    bool
+    Solve(double speed_weight, double start_speed, int step_limit = 100, double descent_rate = 0.1);
+
     void Evaluate(double time, State& state);
     double EndTime();
     bool GetWaypoint(int waypoint_num, Waypoint& to_fill);
@@ -31,15 +42,22 @@ class MinSnapTraj
 
     int GetWaypointCount() { return int(waypoints_.size()); }
     bool solved() { return solved_; }
+    Eigen::VectorXd GetTimes() { return times_; }
 
    private:
-    void CalculateTimes(double average_speed);
-    void CalculateTimePowers(Eigen::MatrixXd& time_powers);
-    void GenerateQ(const Eigen::MatrixXd& time_powers, Eigen::SparseMatrix<double>& Q);
+    void AllocateInitialTimes(Eigen::VectorXd& times, double average_speed);
+    void CalculateTimePowers(const Eigen::MatrixXd& times, Eigen::MatrixXd& time_powers);
+    double CalculateCost(
+        const Eigen::VectorXd& b_x,
+        const Eigen::VectorXd& b_y,
+        const Eigen::VectorXd& b_z,
+        const Eigen::VectorXd& b_yaw,
+        const Eigen::VectorXd& times,
+        double speed_weight);
+    void GenerateQ(const Eigen::MatrixXd& time_powers, Eigen::MatrixXd& Q);
     void FillH(const Eigen::VectorXd& time_powers_row, Eigen::MatrixXd& H);
-    void GenerateConstraints(
-        const Eigen::MatrixXd& time_powers,
-        Eigen::SparseMatrix<double>& A,
+    void GenerateA(const Eigen::MatrixXd& time_powers, Eigen::MatrixXd& A);
+    void GenerateB(
         Eigen::VectorXd& b_x,
         Eigen::VectorXd& b_y,
         Eigen::VectorXd& b_z,
@@ -56,6 +74,7 @@ class MinSnapTraj
     bool first_time_;
     double start_time_;
     double end_time_;
+    double total_time_;
 
     const int kPosMinDerivative = 4;
     const int kPolyOrder = 7;
@@ -70,8 +89,9 @@ class MinSnapTraj
     Eigen::VectorXd times_;
 
     OsqpEigen::Solver solver_;
-    bool solver_init_;
 
+    std::vector<Waypoint> start_derivatives_;
+    std::vector<Waypoint> end_derivatives_;
     std::vector<Waypoint> waypoints_;
     std::vector<std::vector<Polynomial>> x_polys_;
     std::vector<std::vector<Polynomial>> y_polys_;
