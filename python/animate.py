@@ -137,6 +137,8 @@ def animate(
     trail=True,
     des_path_data=None,
     des_path=False,
+    wps=False,
+    wps_data=None,
     save_anim=False,
     file_name="tmp.mp4",
 ):
@@ -234,6 +236,11 @@ def animate(
             -des_path_data[2, :],
         )
         (des_point,) = ax.plot([], [], [], color="red", marker="o")
+    if wps:
+        wps_scatter = ax.scatter(
+            wps_data[1, :], -wps_data[2, :], -wps_data[3, :], color="g"
+        )
+
     # force arrows
     #     0:3         3:6            6:9         9:12       12:15     15:18           18:21              21:24            24:27           27:30           30:33           33:36
     # motor_thr_l, motor_thr_r, motor_drag_l, motor_drag_r, lift, force_gravity, elv_lift_reduc_l, elv_lift_reduc_r, rot_lift_wing, elv_thr_redir_l, elv_thr_redir_r, rot_lift_reduc_elv
@@ -352,7 +359,7 @@ def animate(
             )
             # print(states[0, : frame * frame_mult + 1])
             # print()
-        if des_path:
+        if des_path and frame * frame_mult < des_path_data.shape[1]:
             des_point.set_data(
                 [des_path_data[0, frame * frame_mult]],
                 [-des_path_data[1, frame * frame_mult]],
@@ -563,7 +570,12 @@ def animate(
 
 
 def find_data_animate(
-    state_file, force_file, controls_file, aircraft_model_params_file, run_settings_file
+    state_file,
+    force_file,
+    controls_file,
+    aircraft_model_params_file,
+    run_settings_file,
+    waypoint_file,
 ):
     with open(state_file, mode="r", newline="") as file:
         csv_reader = csv.reader(file)
@@ -660,6 +672,15 @@ def find_data_animate(
         config_data = tomllib.load(f)
         freq = 1 / config_data["time_step"]
         print(freq)
+    with open(waypoint_file, mode="r", newline="") as file:
+        csv_reader = csv.reader(file)
+        wps = []
+        next(csv_reader)
+        for row in csv_reader:
+            float_row = [float(item) for item in row]
+            wps.append(float_row)
+
+        wps = np.array(wps).T
     animate(
         states,
         aircraft,
@@ -669,4 +690,7 @@ def find_data_animate(
         fps=30,
         des_path_data=des_pos,
         des_path=True,
+        wps=True,
+        wps_data=wps,
+        save_anim=False,
     )
