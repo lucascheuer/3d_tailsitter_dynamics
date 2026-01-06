@@ -1,7 +1,7 @@
 #pragma once
 struct State
 {
-        double x;
+    double x;
     double y;
     double z;
 
