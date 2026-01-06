@@ -13,6 +13,7 @@ sim_path = (
 out_folder = Path(__file__).resolve().parent.parent / "out_files"
 param_folder = Path(__file__).resolve().parent.parent / "param_files"
 trajectory_folder = Path(__file__).resolve().parent.parent / "trajectory_files"
+waypoint_folder = Path(__file__).resolve().parent.parent / "waypoint_files"
 
 # output files
 state_out_file = out_folder / "states.csv"
@@ -25,7 +26,9 @@ aircraft_model_params_file = param_folder / "aircraft_model_params.toml"
 controller_params_file = param_folder / "controller_params.toml"
 run_params_file = param_folder / "run_settings.toml"
 initial_condition_params_file = param_folder / "initial_conditions.toml"
-trajectory_file = trajectory_folder / "trajectory.csv"
+trajectory_file = trajectory_folder / "trajectory_test.csv"
+waypoint_file = waypoint_folder / "waypoint_test.csv"
+
 
 input_list = [
     sim_path,
@@ -48,6 +51,7 @@ find_data_animate(
     control_out_file,
     aircraft_model_params_file,
     run_params_file,
+    waypoint_file,
 )
 
 find_data_plot(state_out_file, state_dot_out_file, control_out_file)
