@@ -151,7 +151,6 @@ bool MinSnapTraj::Solve(
     std::cout << "byaw: " << b_yaw.transpose() << std::endl;
     Eigen::SparseMatrix<double> sparseA = A.sparseView();
     Eigen::SparseMatrix<double> sparseQ = Q.sparseView();
-    dl;
     if (!first_time_)
     {
         solver_.data()->clearHessianMatrix();
