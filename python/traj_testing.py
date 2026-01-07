@@ -4,6 +4,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 from traj_gen_circle import generate_circle
+from traj_gen_min_snap import generate_minsnap
 
 traj_gen_path = (
     Path(__file__).resolve().parent.parent
@@ -18,21 +19,15 @@ waypoint_folder = Path(__file__).resolve().parent.parent / "waypoint_files"
 # output files
 trajectory_file = out_folder / "trajectory_test.csv"
 waypoint_file = waypoint_folder / "waypoint_test.csv"
-fig, ax = plt.subplots(1, 1)
-fig.suptitle("XY")
+
 
 controller_frequency = 1000
 traj_speed = 16
-speed_weight = 0
-descent_rate = 0.0001
-
-step_limit = 100
 waypoints = [
     [0, 0, 0, 0],
     [0, 0, 0, np.pi / 2],
-    [0, 16, 0, np.pi / 2],
-    [0, 32, 0, 0],
-    # [0, 2, 0, np.pi * 1.2],
+    [0, 8, 0, np.pi / 2],
+    [0, 16, 0, 0],
 ]
 
 start_point_derivatives = [
@@ -42,95 +37,126 @@ start_point_derivatives = [
     [0, 0, 0, 0],  # snap
 ]
 
-use_circle = True
 circle_freq = 1.0 / 10.0
-circle_diameter = 8.0
-if use_circle:
-    circle_data = generate_circle(
-        traj_speed,
-        1.0 / circle_freq,
-        circle_freq,
-        circle_diameter,
-        waypoints[-1][0],
-        waypoints[-1][1],
-        z_offset=waypoints[-1][2],
-        spiral_speed=-0.1,
+circle_diameter = 10.0
+circle_traj = generate_circle(
+    traj_speed,
+    1.0 / circle_freq,
+    circle_freq,
+    circle_diameter,
+    waypoints[-1][0],
+    waypoints[-1][1],
+    z_offset=waypoints[-1][2],
+    spiral_speed=-0.0,
+)
+
+end_point_derivatives = np.zeros((4, 4))
+end_point_derivatives[0, 0:3] = circle_traj[0, 4:7]
+end_point_derivatives[1, 0:3] = circle_traj[0, 7:10]
+end_point_derivatives[2, 0:3] = circle_traj[0, 10:13]
+end_point_derivatives[3, 0:3] = circle_traj[0, 15:18]
+end_point_derivatives[0, 3] = circle_traj[0, 14]
+
+minsnap_traj_one, wp_one = generate_minsnap(
+    waypoints, traj_speed, start_point_derivatives, end_point_derivatives
+)
+
+
+waypoints = [
+    [circle_traj[-1, 1], circle_traj[-1, 2], circle_traj[-1, 3], circle_traj[-1, 13]],
+    [
+        circle_traj[-1, 1],
+        circle_traj[-1, 2] + 4,
+        circle_traj[-1, 3],
+        circle_traj[-1, 13],
+    ],
+    [
+        circle_traj[-1, 1],
+        circle_traj[-1, 2] + 8,
+        circle_traj[-1, 3],
+        circle_traj[-1, 13],
+    ],
+]
+
+start_point_derivatives = np.zeros((4, 4))
+start_point_derivatives[0, 0:3] = circle_traj[-1, 4:7]
+start_point_derivatives[1, 0:3] = circle_traj[-1, 7:10]  # / 2
+start_point_derivatives[2, 0:3] = circle_traj[-1, 10:13]  # / 6
+start_point_derivatives[3, 0:3] = circle_traj[-1, 15:18]  # / 24
+start_point_derivatives[0, 3] = circle_traj[-1, 14]
+
+# start_point_derivatives = [
+#     [1, 2, 3, 4],  # vel
+#     [5, 6, 7, 8],  # accl
+#     [9, 1, 2, 3],  # jerk
+#     [0, 0, 0, 0],  # snap
+# ]
+np.set_printoptions(linewidth=np.inf, suppress=True, precision=6)
+
+end_point_derivatives = [
+    [0, 0, 0, 0],  # vel
+    [0, 0, 0, 0],  # accl
+    [0, 0, 0, 0],  # jerk
+    [0, 0, 0, 0],  # snap
+]
+
+traj_speed = 8
+minsnap_traj_two, wp_two = generate_minsnap(
+    waypoints, traj_speed, start_point_derivatives, end_point_derivatives
+)
+minsnap_traj_two_start_time = circle_traj[-1, 0]
+minsnap_traj_two[:, 0] += minsnap_traj_two_start_time
+wp_two[:, 0] += minsnap_traj_two_start_time
+print("circle end")
+print(circle_traj[-1, :])
+print("des start point derivs")
+print(start_point_derivatives)
+print("actual start point derivs")
+
+print(minsnap_traj_two[0, :])
+traj_header = "times,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,acc_x,acc_y,acc_z,jerk_x,jerk_y,jerk_z,yaw,yaw_dot\n"
+wp_header = "t,pos_x,pos_y,pos_z,yaw\n"
+# circle_traj = circle_traj[:, :15]
+with open(trajectory_file, "w") as f:
+    f.write(traj_header)
+    np.savetxt(
+        f,
+        minsnap_traj_one,
+        fmt="%.5f",
+        delimiter=",",
+        comments="",
+    )
+    np.savetxt(
+        f,
+        circle_traj,
+        fmt="%.5f",
+        delimiter=",",
+        comments="",
+    )
+    np.savetxt(
+        f,
+        minsnap_traj_two,
+        fmt="%.5f",
+        delimiter=",",
+        comments="",
     )
 
-    end_point_derivatives = np.zeros((4, 4))
-    end_point_derivatives[0, 0:3] = circle_data[-1, 4:7]
-    end_point_derivatives[1, 0:3] = circle_data[-1, 7:10]
-    end_point_derivatives[2, 0:3] = circle_data[-1, 10:13]
-    end_point_derivatives[3, 0:3] = circle_data[-1, 15:18]
-    end_point_derivatives[0, 3] = circle_data[-1, 14]
-    circle_data = circle_data[:, :15]
-else:
-    end_point_derivatives = [
-        [0, 0, 0, 0],  # vel
-        [0, 0, 0, 0],  # accl
-        [0, 0, 0, 0],  # jerk
-        [0, 0, 0, 0],  # snap
-    ]
-# angle_step = np.pi / 8
-# diameter = 16
-# lateral_offset = 0.1
-# angles = np.arange(0, np.pi * 2 + angle_step, angle_step)
-# xs = 0.5 * diameter * np.cos(angles - np.pi / 2) + lateral_offset
-# ys = 0.5 * diameter * np.sin(angles - np.pi / 2) + diameter * 0.5
-# waypoints = [[0, 0, 0, 0]]
-# for x, y, angle in zip(xs, ys, angles):
-#     waypoints.append([x, y, 0, angle])
-# waypoints.append([lateral_offset + lateral_offset, 0, 0, np.pi * 4.0])
-# waypoints = [
-#     [0, 0, 0, 0],
-#     [8, 0, 0, 0],
-#     [12, 4, 0, np.pi * 0.5],
-#     [8, 8, 0, np.pi],
-#     [4, 4, 0, np.pi * 1.5],
-#     [8, 0, 0, np.pi * 2],
-#     [12, 4, 0, np.pi * 2.5],
-#     [8, 8, 0, np.pi * 3],
-#     [4, 4, 0, np.pi * 3.5],
-#     [8, 0, 0, np.pi * 4.0],
-#     [16, 0, 0, np.pi * 4.0],
-# ]
-
-input_list = [
-    traj_gen_path,
-    trajectory_file,
-    waypoint_file,
-    str(controller_frequency),
-    str(0),
-    str(traj_speed),
-    str(speed_weight),
-    str(descent_rate),
-    str(step_limit),
-    str(len(waypoints)),
-]
-for waypoint in waypoints:
-    for item in waypoint:
-        input_list.append(str(item))
-for derivative in start_point_derivatives:
-    for item in derivative:
-        input_list.append(str(item))
-for derivative in end_point_derivatives:
-    for item in derivative:
-        input_list.append(str(item))
-
-for inp in input_list:
-    print(inp, end=" ")
-print()
-subprocess.run(input_list)
-
-if use_circle:
-    with open(trajectory_file, "a") as f:
-        np.savetxt(
-            f,
-            circle_data,
-            fmt="%.5f",
-            delimiter=",",
-            comments="",
-        )
+with open(waypoint_file, "w") as f:
+    f.write(wp_header)
+    np.savetxt(
+        f,
+        wp_one,
+        fmt="%.5f",
+        delimiter=",",
+        comments="",
+    )
+    np.savetxt(
+        f,
+        wp_two,
+        fmt="%.5f",
+        delimiter=",",
+        comments="",
+    )
 
 with open(trajectory_file, mode="r", newline="") as file:
     csv_reader = csv.reader(file)
@@ -151,21 +177,27 @@ with open(waypoint_file, mode="r", newline="") as file:
 
 wps = np.array(wps).T
 print("final time:", wps[0, -1])
-# fig, ax = plt.subplots(1, 1)
-# fig.suptitle("XY")
-ax.plot(traj[1, :], traj[2, :])
+ax = plt.figure().add_subplot(projection="3d")
+ax.plot(traj[1, :], -traj[2, :], -traj[3, :])
 
 
 arrow_length = 0.5
 x_d = arrow_length * np.cos(wps[4, :])
-y_d = arrow_length * np.sin(wps[4, :])
+y_d = -arrow_length * np.sin(wps[4, :])
+z_d = np.zeros(y_d.shape)
 ax.quiver(
-    wps[1, :], wps[2, :], x_d, y_d, scale_units="xy", angles="xy", color="r", scale=1
+    wps[1, :],
+    -wps[2, :],
+    -wps[3, :],
+    x_d,
+    y_d,
+    z_d,
+    color="r",
 )
 ax.grid(True)
 ax.set_aspect("equal", adjustable="box")
 
-fig, axs = plt.subplots(4, 1)
+fig, axs = plt.subplots(5, 1)
 fig.suptitle("X")
 ax = axs[0]
 ax.grid(True)
@@ -184,8 +216,12 @@ ax = axs[3]
 ax.grid(True)
 ax.set_title("jx")
 ax.plot(traj[0, :], traj[10, :])
+ax = axs[4]
+ax.grid(True)
+ax.set_title("sx")
+ax.plot(traj[0, :], traj[15, :])
 
-fig, axs = plt.subplots(4, 1)
+fig, axs = plt.subplots(5, 1)
 fig.suptitle("Y")
 ax = axs[0]
 ax.grid(True)
@@ -204,8 +240,12 @@ ax = axs[3]
 ax.grid(True)
 ax.set_title("jy")
 ax.plot(traj[0, :], traj[11, :])
+ax = axs[4]
+ax.grid(True)
+ax.set_title("sx")
+ax.plot(traj[0, :], traj[16, :])
 
-fig, axs = plt.subplots(4, 1)
+fig, axs = plt.subplots(5, 1)
 fig.suptitle("Z")
 ax = axs[0]
 ax.grid(True)
@@ -224,6 +264,10 @@ ax = axs[3]
 ax.grid(True)
 ax.set_title("jz")
 ax.plot(traj[0, :], traj[12, :])
+ax = axs[4]
+ax.grid(True)
+ax.set_title("sx")
+ax.plot(traj[0, :], traj[17, :])
 
 fig, axs = plt.subplots(2, 1)
 fig.suptitle("Yaw")
