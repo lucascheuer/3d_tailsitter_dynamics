@@ -115,6 +115,7 @@ bool ParseTrajRow(
         controller_desired.vel_des = ParseXYZ(line_stream);
         controller_desired.acc_des = ParseXYZ(line_stream);
         controller_desired.jerk_des = ParseXYZ(line_stream);
+        Eigen::Vector3d snap = ParseXYZ(line_stream);
         std::getline(line_stream, field, ',');
         controller_desired.yaw_des = std::stod(field);
         std::getline(line_stream, field, ',');

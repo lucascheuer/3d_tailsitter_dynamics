@@ -29,7 +29,7 @@ int main(int argc, char* argv[])
         if (!append)
         {
             trajectory_file << "t,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,acc_x,acc_y,acc_z,jerk_x,"
-                               "jerk_y,jerk_z,yaw,yaw_dot"
+                               "jerk_y,jerk_z,snap_x,snap_y,snap_zyaw,yaw_dot"
                             << std::endl;
         }
         trajectory_file << std::fixed;
@@ -134,8 +134,8 @@ int main(int argc, char* argv[])
         trajectory_file << time << "," << state.x << "," << state.y << "," << state.z << ","
                         << state.vx << "," << state.vy << "," << state.vz << "," << state.ax << ","
                         << state.ay << "," << state.az << "," << state.jx << "," << state.jy << ","
-                        << state.jz << "," << state.yaw << "," << state.vyaw << "," << state.sx
-                        << "," << state.sy << "," << state.sz << "\n";
+                        << state.jz << "," << state.sx << "," << state.sy << "," << state.sz << ","
+                        << state.yaw << "," << state.vyaw << "\n";
     }
     trajectory_file.close();
     double time = 0;

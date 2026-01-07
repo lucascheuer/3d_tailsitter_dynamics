@@ -108,18 +108,18 @@ def generate_circle(
             jerk_x,
             jerk_y,
             jerk_z,
-            yaw,
-            yaw_dot,
             snap_x,
             snap_y,
             snap_z,
+            yaw,
+            yaw_dot,
         )
     )
     return data
 
 
 if __name__ == "__main__":
-    header_text = "times,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,acc_x,acc_y,acc_z,jerk_x,jerk_y,jerk_z,yaw,yaw_dot"
+    header_text = "times,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,acc_x,acc_y,acc_z,jerk_x,jerk_y,jerk_z,snap_x,snap_y,snap_z,yaw,yaw_dot"
 
     diameter = 4.0
     t_start = 0.0
