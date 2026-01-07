@@ -144,7 +144,6 @@ bool MinSnapTraj::Solve(
     Eigen::MatrixXd Q = Eigen::MatrixXd::Zero(num_variables_, num_variables_);
     Eigen::MatrixXd A =
         Eigen::MatrixXd::Zero(2 * num_segments_ + 8 + 4 * num_internal_joints_, num_variables_);
-    std::cout << "A size " << A.cols() << "," << A.rows() << "\n";
     CalculateTimePowers(times, time_powers);
     GenerateQ(time_powers, Q);
     GenerateA(time_powers, A);
@@ -208,7 +207,7 @@ bool MinSnapTraj::Solve(
     while (ii < step_limit)
     {
         double base_cost = CalculateCost(b_x, b_y, b_z, b_yaw, times, speed_weight);
-        std::cout << ii << ": base cost: " << base_cost << std::endl;
+        // std::cout << ii << ": base cost: " << base_cost << std::endl;
         // std::cout << "Total time: " << times.sum() << "\ttimes: " <<
         // times.transpose().format(fmt)
         //           << std::endl;
@@ -241,7 +240,7 @@ bool MinSnapTraj::Solve(
 
         if (abs(last_cost / base_cost - 1.0) < 0.001)
         {
-            std::cout << "Reached break at " << ii << " steps" << std::endl;
+            // std::cout << "Reached break at " << ii << " steps" << std::endl;
             break;
         }
         last_cost = base_cost;
@@ -251,7 +250,7 @@ bool MinSnapTraj::Solve(
 
     times_ = times;
     total_time_ = times_.sum();
-    std::cout << times_.transpose().format(fmt) << std::endl;
+    // std::cout << times_.transpose().format(fmt) << std::endl;
     CalculateTimePowers(times_, time_powers);
     GenerateQ(time_powers, Q);
     GenerateA(time_powers, A);
@@ -302,7 +301,7 @@ bool MinSnapTraj::Solve(
     y_polys_.clear();
     z_polys_.clear();
     yaw_polys_.clear();
-    std::cout << "Total Time: " << total_time_ << std::endl;
+    // std::cout << "Total Time: " << total_time_ << std::endl;
     for (int segment = 0; segment < num_segments_; ++segment)
     {
         std::vector<Polynomial> segment_x_polys;
@@ -310,7 +309,7 @@ bool MinSnapTraj::Solve(
         std::vector<Polynomial> segment_z_polys;
         std::vector<Polynomial> segment_yaw_polys;
         segment_x_polys.push_back(Polynomial(x_coeffs.segment(segment * kCoeffCount, kCoeffCount)));
-        std::cout << "Segment " << segment << " poly: " << segment_x_polys.back() << std::endl;
+        // std::cout << "Segment " << segment << " poly: " << segment_x_polys.back() << std::endl;
 
         segment_y_polys.push_back(Polynomial(y_coeffs.segment(segment * kCoeffCount, kCoeffCount)));
         segment_z_polys.push_back(Polynomial(z_coeffs.segment(segment * kCoeffCount, kCoeffCount)));
@@ -502,14 +501,16 @@ void MinSnapTraj::GenerateA(const Eigen::MatrixXd& time_powers, Eigen::MatrixXd&
     // start could be the current one.
     for (int derivative = 1; derivative <= kPosMinDerivative; ++derivative)
     {
-        A(constraint_count, derivative) = 1;
+        A(constraint_count, derivative) = CalculatePolyCoeffMultiplier(derivative, derivative);
         ++constraint_count;
     }
+
     // end point derivatives. No setting of target velocity and acceleration yet. In the future end
     // could a desired velocity
     for (int derivative = 1; derivative <= kPosMinDerivative; ++derivative)
     {
         Eigen::RowVectorXd constraint_row(kCoeffCount);
+        // std::cout << time_powers.row(num_segments_ - 1) << std::endl;
         CalculatePolyDerivativeMultipliers(
             kCoeffCount, derivative, time_powers.row(num_segments_ - 1), constraint_row);
         A.block(constraint_count, kCoeffCount * (num_segments_ - 1), 1, 8) = constraint_row;
@@ -569,7 +570,6 @@ void MinSnapTraj::GenerateB(
         ++constraint_count;
     }
     // startpoint derivatives
-    std::cout << "setting b start point derivatives" << std::endl;
     for (int derivative = 1; derivative <= kPosMinDerivative; ++derivative)
     {
         b_x(constraint_count) = start_derivatives_[derivative - 1].pos.x();
@@ -579,11 +579,9 @@ void MinSnapTraj::GenerateB(
         ++constraint_count;
     }
     // endpoint derivatives
-    std::cout << "setting b end point derivatives" << std::endl;
 
     for (int derivative = 1; derivative <= kPosMinDerivative; ++derivative)
     {
-        std::cout << end_derivatives_[derivative - 1].pos.x() << std::endl;
         b_x(constraint_count) = end_derivatives_[derivative - 1].pos.x();
         b_y(constraint_count) = end_derivatives_[derivative - 1].pos.y();
         b_z(constraint_count) = end_derivatives_[derivative - 1].pos.z();
