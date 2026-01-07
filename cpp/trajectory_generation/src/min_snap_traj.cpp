@@ -95,16 +95,19 @@ void MinSnapTraj::Evaluate(double time, State& state)
     state.vx = x_polys_[segment][1].Evaluate(time);
     state.ax = x_polys_[segment][2].Evaluate(time);
     state.jx = x_polys_[segment][3].Evaluate(time);
+    state.sx = x_polys_[segment][4].Evaluate(time);
 
     state.y = y_polys_[segment][0].Evaluate(time);
     state.vy = y_polys_[segment][1].Evaluate(time);
     state.ay = y_polys_[segment][2].Evaluate(time);
     state.jy = y_polys_[segment][3].Evaluate(time);
+    state.sy = y_polys_[segment][4].Evaluate(time);
 
     state.z = z_polys_[segment][0].Evaluate(time);
     state.vz = z_polys_[segment][1].Evaluate(time);
     state.az = z_polys_[segment][2].Evaluate(time);
     state.jz = z_polys_[segment][3].Evaluate(time);
+    state.sz = z_polys_[segment][4].Evaluate(time);
 
     state.yaw = yaw_polys_[segment][0].Evaluate(time);
     state.vyaw = yaw_polys_[segment][1].Evaluate(time);
@@ -313,7 +316,7 @@ bool MinSnapTraj::Solve(
         segment_z_polys.push_back(Polynomial(z_coeffs.segment(segment * kCoeffCount, kCoeffCount)));
         segment_yaw_polys.push_back(
             Polynomial(yaw_coeffs.segment(segment * kCoeffCount, kCoeffCount)));
-        for (int derivative = 1; derivative < 4; ++derivative)
+        for (int derivative = 1; derivative < 5; ++derivative)
         {
             // std::cout << "doing derivatives: " << derivative << std::endl;
             segment_x_polys.push_back(segment_x_polys.back().Derivative());
