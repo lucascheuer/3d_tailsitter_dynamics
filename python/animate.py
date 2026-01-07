@@ -492,16 +492,18 @@ def animate(
         # Setting the size of the view
         if follow_global == 0:
             if frame == 0:
+                camera_size = 5
                 ax.set_xlim(
-                    states[0, frame * frame_mult] - 1, states[0, frame * frame_mult] + 1
+                    states[0, frame * frame_mult] - camera_size,
+                    states[0, frame * frame_mult] + camera_size,
                 )
                 ax.set_ylim(
-                    -states[1, frame * frame_mult] - 1,
-                    -states[1, frame * frame_mult] + 1,
+                    -states[1, frame * frame_mult] - camera_size,
+                    -states[1, frame * frame_mult] + camera_size,
                 )
                 ax.set_zlim(
-                    -states[2, frame * frame_mult] - 1,
-                    -states[2, frame * frame_mult] + 1,
+                    -states[2, frame * frame_mult] - camera_size,
+                    -states[2, frame * frame_mult] + camera_size,
                 )
             x_min, x_max = ax.get_xlim()
             y_min, y_max = ax.get_ylim()
