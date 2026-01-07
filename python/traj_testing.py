@@ -107,13 +107,13 @@ minsnap_traj_two, wp_two = generate_minsnap(
 minsnap_traj_two_start_time = circle_traj[-1, 0]
 minsnap_traj_two[:, 0] += minsnap_traj_two_start_time
 wp_two[:, 0] += minsnap_traj_two_start_time
-print("circle end")
-print(circle_traj[-1, :])
-print("des start point derivs")
-print(start_point_derivatives)
-print("actual start point derivs")
+# print("circle end")
+# print(circle_traj[-1, :])
+# print("des start point derivs")
+# print(start_point_derivatives)
+# print("actual start point derivs")
 
-print(minsnap_traj_two[0, :])
+# print(minsnap_traj_two[0, :])
 traj_header = "times,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,acc_x,acc_y,acc_z,jerk_x,jerk_y,jerk_z,yaw,yaw_dot\n"
 wp_header = "t,pos_x,pos_y,pos_z,yaw\n"
 # circle_traj = circle_traj[:, :15]

@@ -147,10 +147,6 @@ bool MinSnapTraj::Solve(
     CalculateTimePowers(times, time_powers);
     GenerateQ(time_powers, Q);
     GenerateA(time_powers, A);
-    std::cout << "bx: " << b_x.transpose() << std::endl;
-    std::cout << "by: " << b_y.transpose() << std::endl;
-    std::cout << "bz: " << b_z.transpose() << std::endl;
-    std::cout << "byaw: " << b_yaw.transpose() << std::endl;
     Eigen::SparseMatrix<double> sparseA = A.sparseView();
     Eigen::SparseMatrix<double> sparseQ = Q.sparseView();
     if (!first_time_)

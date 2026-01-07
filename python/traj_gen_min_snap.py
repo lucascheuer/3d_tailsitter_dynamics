@@ -42,7 +42,6 @@ def generate_minsnap(
         for item in waypoint:
             input_list.append(str(item))
     if not (start_point_derivatives is None or end_point_derivatives is None):
-        print("derivatives being used")
         for derivative in start_point_derivatives:
             for item in derivative:
                 input_list.append(str(item))

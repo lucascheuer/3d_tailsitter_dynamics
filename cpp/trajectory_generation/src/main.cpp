@@ -120,30 +120,10 @@ int main(int argc, char* argv[])
     {
         std::cout << "traj failed to solve" << std::endl;
     }
-    std::cout << "Times:\n" << traj.GetTimes().transpose() << std::endl;
     State first_state;
     traj.Evaluate(0.0, first_state);
-    std::cout << "state at 0\n";
-    std::cout << ",x" << first_state.vx << ",y" << first_state.vy << ",z" << first_state.vz << ",x"
-              << first_state.ax << ",y" << first_state.ay << ",z" << first_state.az << ",x"
-              << first_state.jx << ",y" << first_state.jy << ",z" << first_state.jz << ",yaw"
-              << first_state.yaw << ",vyaw" << first_state.vyaw << "\n";
-    for (MinSnapTraj::Waypoint wp : start_point_derivatives)
-    {
-        std::cout << ",x" << wp.pos.x() << ",y" << wp.pos.y() << ",z" << wp.pos.z();
-    }
-    std::cout << std::endl;
-    for (MinSnapTraj::Waypoint wp : end_point_derivatives)
-    {
-        std::cout << ",x" << wp.pos.x() << ",y" << wp.pos.y() << ",z" << wp.pos.z();
-    }
-    std::cout << std::endl;
+
     traj.Evaluate(traj.EndTime(), first_state);
-    std::cout << "state at 0\n";
-    std::cout << ",x" << first_state.vx << ",y" << first_state.vy << ",z" << first_state.vz << ",x"
-              << first_state.ax << ",y" << first_state.ay << ",z" << first_state.az << ",x"
-              << first_state.jx << ",y" << first_state.jy << ",z" << first_state.jz << ",yaw"
-              << first_state.yaw << ",vyaw" << first_state.vyaw << "\n";
     double start_time = 0;
     double end_time = traj.EndTime();
     double dt = 1.0 / control_frequency;
