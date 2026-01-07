@@ -17,6 +17,10 @@ struct State
     double jy;
     double jz;
 
+    double sx;
+    double sy;
+    double sz;
+
     double yaw;
     double vyaw;
 };
