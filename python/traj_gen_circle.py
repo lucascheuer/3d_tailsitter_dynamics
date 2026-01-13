@@ -146,7 +146,7 @@ if __name__ == "__main__":
     np.savetxt(
         "trajectory_files/trajectory_circle.csv",
         data,
-        fmt="%.5f",
+        fmt="%.10f",
         delimiter=",",
         header=header_text,
         comments="",
