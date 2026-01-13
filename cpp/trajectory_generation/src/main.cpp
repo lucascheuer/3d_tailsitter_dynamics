@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
                             << std::endl;
         }
         trajectory_file << std::fixed;
-        trajectory_file << std::setprecision(5);
+        trajectory_file << std::setprecision(10);
     } else
     {
         std::cout << "Failed to Open Trajectory File" << std::endl;
