@@ -236,6 +236,7 @@ def animate(
             -des_path_data[2, :],
         )
         (des_point,) = ax.plot([], [], [], color="red", marker="o")
+        (control_diff,) = ax.plot([], [], [], color="green")
     if wps:
         wps_scatter = ax.scatter(
             wps_data[1, :], -wps_data[2, :], -wps_data[3, :], color="g"
@@ -365,6 +366,13 @@ def animate(
                 [-des_path_data[1, frame * frame_mult]],
             )
             des_point.set_3d_properties([-des_path_data[2, frame * frame_mult]])
+            control_diff.set_data(
+                [des_path_data[0, frame * frame_mult], states[0, frame * frame_mult]],
+                [-des_path_data[1, frame * frame_mult], -states[1, frame * frame_mult]],
+            )
+            control_diff.set_3d_properties(
+                [-des_path_data[2, frame * frame_mult], -states[2, frame * frame_mult]]
+            )
         left_elevon_rot = R.from_rotvec(
             states[13, frame * frame_mult] * np.array([0, 1, 0])
         )
@@ -492,7 +500,7 @@ def animate(
         # Setting the size of the view
         if follow_global == 0:
             if frame == 0:
-                camera_size = 5
+                camera_size = 10
                 ax.set_xlim(
                     states[0, frame * frame_mult] - camera_size,
                     states[0, frame * frame_mult] + camera_size,
@@ -695,4 +703,5 @@ def find_data_animate(
         wps=True,
         wps_data=wps,
         save_anim=False,
+        file_name="traj_to_circle.mp4",
     )

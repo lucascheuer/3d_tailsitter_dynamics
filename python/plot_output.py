@@ -26,10 +26,6 @@ def plot_output(states, states_dot, control_data):
     rotations = R.from_quat(quats_xyzw)
     euler_angles_deg = rotations.as_euler("ZXY", degrees=True).T
 
-    quats_des = control_data[7:11, :].T
-    quats_xyzw = quats_des[:, [1, 2, 3, 0]]
-    rotations_des = R.from_quat(quats_xyzw)
-    euler_angles_deg_des = rotations_des.as_euler("ZXY", degrees=True).T
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("position")
@@ -124,15 +120,12 @@ def plot_output(states, states_dot, control_data):
     ax = axs[0]
     ax.set_title("roll")
     ax.plot(states[0, :], euler_angles_deg[1, :])
-    ax.plot(control_data[0, :], euler_angles_deg_des[1, :])
     ax = axs[1]
     ax.set_title("pitch")
     ax.plot(states[0, :], euler_angles_deg[2, :])
-    ax.plot(control_data[0, :], euler_angles_deg_des[2, :])
     ax = axs[2]
     ax.set_title("yaw")
     ax.plot(states[0, :], euler_angles_deg[0, :])
-    ax.plot(control_data[0, :], euler_angles_deg_des[0, :])
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("angular velocity body")
