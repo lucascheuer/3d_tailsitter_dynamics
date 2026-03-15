@@ -120,10 +120,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "traj failed to solve" << std::endl;
     }
-    State first_state;
-    traj.Evaluate(0.0, first_state);
 
-    traj.Evaluate(traj.EndTime(), first_state);
     double start_time = 0;
     double end_time = traj.EndTime();
     double dt = 1.0 / control_frequency;

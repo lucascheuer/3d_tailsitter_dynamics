@@ -3,8 +3,6 @@
 #include <iomanip>
 #include <iostream>
 
-#include "gdcpp.hpp"
-
 MinSnapTraj::MinSnapTraj()
     : solved_(false), start_time_(0.0), end_time_(0.0), total_time_(0.0), first_time_(true)
 {
