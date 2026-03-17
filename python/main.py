@@ -11,6 +11,8 @@ sim_path = (
     / "3d_aircraft_sim"
 )
 out_folder = Path(__file__).resolve().parent.parent / "out_files"
+initial_conditions_folder = Path(__file__).resolve().parent.parent / "initial_conditions"
+run_settings_folder = Path(__file__).resolve().parent.parent / "run_settings"
 param_folder = Path(__file__).resolve().parent.parent / "param_files"
 trajectory_folder = Path(__file__).resolve().parent.parent / "trajectory_files"
 waypoint_folder = Path(__file__).resolve().parent.parent / "waypoint_files"
@@ -21,13 +23,15 @@ state_dot_out_file = out_folder / "states_dot.csv"
 control_out_file = out_folder / "control.csv"
 forces_out_file = out_folder / "forces.csv"
 
-# input files
+# model and controller input files
 aircraft_model_params_file = param_folder / "aircraft_model_params.toml"
 controller_params_file = param_folder / "controller_params.toml"
-run_params_file = param_folder / "run_settings.toml"
-initial_condition_params_file = param_folder / "initial_conditions.toml"
-trajectory_file = trajectory_folder / "trajectory_test.csv"
-waypoint_file = waypoint_folder / "waypoint_test.csv"
+
+# trajectory files
+run_params_file = run_settings_folder / "simple_run_settings.toml"
+initial_condition_params_file = initial_conditions_folder / "simple_initial_conditions.toml"
+trajectory_file = trajectory_folder / "simple_trajectory.csv"
+waypoint_file = waypoint_folder / "simple_waypoints.csv"
 
 
 input_list = [
