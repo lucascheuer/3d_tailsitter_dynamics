@@ -26,10 +26,6 @@ def plot_output(states, states_dot, control_data):
     rotations = R.from_quat(quats_xyzw)
     euler_angles_deg = rotations.as_euler("ZXY", degrees=True).T
 
-    quats_des = control_data[7:11, :].T
-    quats_xyzw = quats_des[:, [1, 2, 3, 0]]
-    rotations_des = R.from_quat(quats_xyzw)
-    euler_angles_deg_des = rotations_des.as_euler("ZXY", degrees=True).T
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("position")
@@ -49,24 +45,27 @@ def plot_output(states, states_dot, control_data):
     z_pos = states[3, -1]
     position_inertial = states[1:4, :]
     position_inertial_des = control_data[1:4, :]
-    position_error_inertial = position_inertial_des - position_inertial[:, :-1]
-    position_error_body = rotations[:-1].apply(position_error_inertial.T).T
+    control_steps = position_inertial_des.shape[1]
+    position_error_inertial = (
+        position_inertial_des - position_inertial[:, :control_steps]
+    )
+    position_error_body = rotations[:control_steps].apply(position_error_inertial.T).T
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("position error body")
     ax = axs[0]
     ax.set_title("x")
-    ax.plot(states[0, :-1], position_error_body[0, :])
+    ax.plot(control_data[0, :], position_error_body[0, :])
     ax = axs[1]
     ax.set_title("y")
-    ax.plot(states[0, :-1], position_error_body[1, :])
+    ax.plot(control_data[0, :], position_error_body[1, :])
     ax = axs[2]
     ax.set_title("z")
-    ax.plot(states[0, :-1], position_error_body[2, :])
+    ax.plot(control_data[0, :], position_error_body[2, :])
 
     velocity_body = states[4:7, :]
     velocity_inertial_des = control_data[4:7, :]
     velocity_inertial = rotations.apply(velocity_body.T).T
-    velocity_body_des = rotations[:-1].inv().apply(velocity_inertial_des.T).T
+    velocity_body_des = rotations[:control_steps].inv().apply(velocity_inertial_des.T).T
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("velocity inertial")
     ax = axs[0]
@@ -121,15 +120,12 @@ def plot_output(states, states_dot, control_data):
     ax = axs[0]
     ax.set_title("roll")
     ax.plot(states[0, :], euler_angles_deg[1, :])
-    ax.plot(control_data[0, :], euler_angles_deg_des[1, :])
     ax = axs[1]
     ax.set_title("pitch")
     ax.plot(states[0, :], euler_angles_deg[2, :])
-    ax.plot(control_data[0, :], euler_angles_deg_des[2, :])
     ax = axs[2]
     ax.set_title("yaw")
     ax.plot(states[0, :], euler_angles_deg[0, :])
-    ax.plot(control_data[0, :], euler_angles_deg_des[0, :])
 
     fig, axs = plt.subplots(3, 1)
     fig.suptitle("angular velocity body")
@@ -185,7 +181,7 @@ def plot_output(states, states_dot, control_data):
     print("vel_z_body = " + str(velocity_body[2, -1]))
     print("roll = " + str(euler_angles_deg[1, -1]))
     print("pitch = " + str(euler_angles_deg[2, -1]))
-    print("yaw = 0.0")
+    print("yaw = " + str(euler_angles_deg[0, -1]))
     print("omega_x = " + str(states[11, -1]))
     print("omega_y = " + str(states[12, -1]))
     print("omega_z = " + str(states[13, -1]))

@@ -13,12 +13,6 @@ BraceWrapping:
   AfterUnion: true
   AfterExternBlock: true
   AfterNamespace: true
-  AfterObjCInterface: true
-  AfterObjCImplementation: true
-  AfterObjCMethod: true
-  AfterObjCProperty: true
-  AfterObjCSynthesize: true
-  AfterObjCProtocol: true
   AfterCaseLabel: false
 AllowShortIfStatementsOnASingleLine: false
 Language: Cpp

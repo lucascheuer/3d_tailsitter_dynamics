@@ -1,5 +1,7 @@
 #include "aircraft_controller.hpp"
 
+#include <iomanip>
+
 TrackingController::TrackingController(AircraftControllerParameters params, std::string output_file)
     : params_(params), omega_body_filt_prev_(Eigen::Vector3d::Zero()), log_controls_(false)
 {
@@ -12,6 +14,8 @@ TrackingController::TrackingController(AircraftControllerParameters params, std:
             << "t,pos_x,pos_y,pos_z,vel_x,vel_y,vel_z,quat_w,quat_x,quat_y,quat_z,omega_x,omega_y,"
                "omega_z,elevon_left,elevon_right,motor_omega_left,motor_omega_right"
             << std::endl;
+        control_log_ << std::fixed;
+        control_log_ << std::setprecision(5);
     } else
     {
         log_controls_ = false;
