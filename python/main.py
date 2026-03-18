@@ -1,7 +1,15 @@
 import subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from animate import find_data_animate
 from plot_output import find_data_plot
+
+'''
+Run the simulation. There are two exmaple trajectories "combined" and "simple". Modify the file prefix below to change which set you're using.
+Those examples were generates with traj_gen_simple and traj_gen_combined.
+'''
+
+# change this to use a specific set of trajectory files
+file_prefix = "combined"
 
 sim_path = (
     Path(__file__).resolve().parent.parent
@@ -28,10 +36,10 @@ aircraft_model_params_file = param_folder / "aircraft_model_params.toml"
 controller_params_file = param_folder / "controller_params.toml"
 
 # trajectory files
-run_params_file = run_settings_folder / "simple_run_settings.toml"
-initial_condition_params_file = initial_conditions_folder / "simple_initial_conditions.toml"
-trajectory_file = trajectory_folder / "simple_trajectory.csv"
-waypoint_file = waypoint_folder / "simple_waypoints.csv"
+run_params_file = run_settings_folder / PurePosixPath(file_prefix + "_run_settings.toml")
+initial_condition_params_file = initial_conditions_folder / PurePosixPath(file_prefix + "_initial_conditions.toml")
+trajectory_file = trajectory_folder / PurePosixPath(file_prefix + "_trajectory.csv")
+waypoint_file = waypoint_folder / PurePosixPath(file_prefix + "_waypoints.csv")
 
 
 input_list = [
