@@ -1,15 +1,13 @@
 from pathlib import Path
 import numpy as np
-import csv
-import matplotlib.pyplot as plt
 from traj_gen_min_snap import generate_minsnap
 
 
 ''' 
 This file will generate a trajectory and waypoint file at at trajectory_files/simple_trajectory.csv
 and waypoint_files/simple_waypoints.csv respectively.
-
 '''
+
 out_folder = Path(__file__).resolve().parent.parent / "trajectory_files"
 waypoint_folder = Path(__file__).resolve().parent.parent / "waypoint_files"
 initial_conditions_folder = Path(__file__).resolve().parent.parent / "initial_conditions"
