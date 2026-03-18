@@ -3,16 +3,10 @@ from pathlib import Path
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
-from traj_gen_circle import generate_circle
-from traj_gen_min_snap import generate_minsnap
+from trajectory_generators.traj_gen_circle import generate_circle
+from trajectory_generators.traj_gen_min_snap import generate_minsnap
 
-traj_gen_path = (
-    Path(__file__).resolve().parent.parent
-    / "cpp"
-    / "trajectory_generation"
-    / "build"
-    / "min_snap_generator"
-)
+
 out_folder = Path(__file__).resolve().parent.parent / "trajectory_files"
 waypoint_folder = Path(__file__).resolve().parent.parent / "waypoint_files"
 

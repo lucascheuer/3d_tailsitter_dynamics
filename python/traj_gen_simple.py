@@ -1,6 +1,6 @@
 from pathlib import Path
 import numpy as np
-from traj_gen_min_snap import generate_minsnap
+from trajectory_generators.traj_gen_min_snap import generate_minsnap
 
 
 ''' 
